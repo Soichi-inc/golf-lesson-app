@@ -1,12 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { Menu, X, User } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { Menu, X, User, LogOut, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { createClient } from "@/lib/supabase/client";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 const navLinks = [
   { href: "/", label: "トップ", exact: true },
@@ -65,6 +74,31 @@ function NavLink({
 
 export function CustomerHeader() {
   const [open, setOpen] = useState(false);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    // 初期ユーザー取得
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
+
+    // 認証状態の変化を監視
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-stone-100 bg-white/95 backdrop-blur-sm">
@@ -86,7 +120,7 @@ export function CustomerHeader() {
           ))}
         </nav>
 
-        {/* 右側: 予約ボタン + モバイルメニュー */}
+        {/* 右側: 予約ボタン + ユーザーメニュー + モバイルメニュー */}
         <div className="flex items-center gap-2">
           <Button
             asChild
@@ -96,11 +130,47 @@ export function CustomerHeader() {
             <Link href="/schedule">予約する</Link>
           </Button>
 
-          <Button asChild variant="ghost" size="icon" className="hidden sm:flex size-8">
-            <Link href="/mypage" aria-label="マイページ">
-              <User className="size-4" />
-            </Link>
-          </Button>
+          {/* デスクトップ: ユーザーアイコン or ログインリンク */}
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="hidden sm:flex size-8">
+                  <User className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <div className="px-3 py-2">
+                  <p className="text-xs text-stone-500 truncate">{user.email}</p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/mypage" className="cursor-pointer">
+                    <User className="mr-2 size-4" />
+                    マイページ
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-red-600 focus:text-red-600 cursor-pointer"
+                >
+                  <LogOut className="mr-2 size-4" />
+                  ログアウト
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              asChild
+              variant="ghost"
+              size="icon"
+              className="hidden sm:flex size-8"
+            >
+              <Link href="/auth/login" aria-label="ログイン">
+                <LogIn className="size-4" />
+              </Link>
+            </Button>
+          )}
 
           {/* モバイルハンバーガー */}
           <Sheet open={open} onOpenChange={setOpen}>
@@ -136,7 +206,7 @@ export function CustomerHeader() {
                   />
                 ))}
               </nav>
-              <div className="px-4 pt-2 pb-6">
+              <div className="px-4 pt-2 pb-4 flex flex-col gap-2">
                 <Button
                   asChild
                   className="w-full bg-stone-800 hover:bg-stone-700"
@@ -144,6 +214,31 @@ export function CustomerHeader() {
                 >
                   <Link href="/schedule">レッスンを予約する</Link>
                 </Button>
+                {user ? (
+                  <Button
+                    variant="outline"
+                    className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={() => {
+                      setOpen(false);
+                      handleLogout();
+                    }}
+                  >
+                    <LogOut className="mr-2 size-4" />
+                    ログアウト
+                  </Button>
+                ) : (
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setOpen(false)}
+                  >
+                    <Link href="/auth/login">
+                      <LogIn className="mr-2 size-4" />
+                      ログイン
+                    </Link>
+                  </Button>
+                )}
               </div>
             </SheetContent>
           </Sheet>
