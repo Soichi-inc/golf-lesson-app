@@ -2,20 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft, Dumbbell, CheckCircle2, Clock, Circle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { mockDrills } from "@/lib/mock/data";
+import type { Drill } from "@/types";
 
 export const metadata: Metadata = { title: "練習ドリル" };
 
-const ME = "user-1";
-
 const STATUS_MAP = {
-  ASSIGNED:    { label: "未着手",   icon: Circle,       className: "bg-stone-100 text-stone-500 border-stone-200" },
+  ASSIGNED:    { label: "未着手",    icon: Circle,       className: "bg-stone-100 text-stone-500 border-stone-200" },
   IN_PROGRESS: { label: "取り組み中", icon: Clock,        className: "bg-blue-50 text-blue-600 border-blue-200" },
-  COMPLETED:   { label: "完了",     icon: CheckCircle2,  className: "bg-emerald-50 text-emerald-600 border-emerald-200" },
+  COMPLETED:   { label: "完了",      icon: CheckCircle2, className: "bg-emerald-50 text-emerald-600 border-emerald-200" },
 } as const;
 
 export default function MyDrillsPage() {
-  const drills = mockDrills.filter((d) => d.userId === ME);
+  // 実装予定: Supabase から取得
+  const drills: Drill[] = [];
   const active = drills.filter((d) => d.status !== "COMPLETED");
   const done   = drills.filter((d) => d.status === "COMPLETED");
 
@@ -56,9 +55,7 @@ export default function MyDrillsPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-1">
                               <p className="font-medium text-stone-800 text-sm">{drill.title}</p>
-                              <Badge variant="outline" className={`text-[10px] ${s.className}`}>
-                                {s.label}
-                              </Badge>
+                              <Badge variant="outline" className={`text-[10px] ${s.className}`}>{s.label}</Badge>
                             </div>
                             {drill.description && (
                               <p className="text-xs text-stone-500 leading-relaxed">{drill.description}</p>
@@ -76,7 +73,6 @@ export default function MyDrillsPage() {
                 </ul>
               </section>
             )}
-
             {done.length > 0 && (
               <section>
                 <p className="text-xs font-medium text-stone-400 uppercase tracking-widest mb-3">完了済み</p>
@@ -91,9 +87,7 @@ export default function MyDrillsPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-1">
                               <p className="font-medium text-stone-700 text-sm line-through">{drill.title}</p>
-                              <Badge variant="outline" className={`text-[10px] ${s.className}`}>
-                                {s.label}
-                              </Badge>
+                              <Badge variant="outline" className={`text-[10px] ${s.className}`}>{s.label}</Badge>
                             </div>
                             {drill.description && (
                               <p className="text-xs text-stone-400 leading-relaxed">{drill.description}</p>

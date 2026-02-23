@@ -2,14 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { MyReservationList } from "@/components/customer/mypage/MyReservationList";
-import { mockReservations } from "@/lib/mock/data";
 
 export const metadata: Metadata = { title: "予約履歴" };
 
-const ME = "user-1";
-
 export default function MyReservationsPage() {
-  const reservations = mockReservations.filter((r) => r.userId === ME);
+  // 実装予定: Supabase から取得したログインユーザーの予約を渡す
+  const reservations: import("@/types").Reservation[] = [];
 
   return (
     <main className="section-padding">

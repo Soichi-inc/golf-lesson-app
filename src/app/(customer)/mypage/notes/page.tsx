@@ -2,14 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { MyNoteSection } from "@/components/customer/mypage/MyNoteSection";
-import { mockUserNotes } from "@/lib/mock/data";
 
 export const metadata: Metadata = { title: "ミスの傾向ノート" };
 
-const ME = "user-1";
-
 export default function MyNotesPage() {
-  const notes = mockUserNotes.filter((n) => n.userId === ME);
+  // 実装予定: Supabase から取得
+  const notes: import("@/types").UserNote[] = [];
 
   return (
     <main className="section-padding">

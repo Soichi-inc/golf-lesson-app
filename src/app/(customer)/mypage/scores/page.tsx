@@ -2,14 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { MyScoreSection } from "@/components/customer/mypage/MyScoreSection";
-import { mockRoundScores } from "@/lib/mock/data";
 
 export const metadata: Metadata = { title: "ラウンドスコア" };
 
-const ME = "user-1";
-
 export default function MyScoresPage() {
-  const scores = mockRoundScores.filter((s) => s.userId === ME);
+  // 実装予定: Supabase から取得
+  const scores: import("@/types").RoundScore[] = [];
 
   return (
     <main className="section-padding">

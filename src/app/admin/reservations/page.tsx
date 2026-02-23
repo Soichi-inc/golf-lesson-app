@@ -1,16 +1,20 @@
 import type { Metadata } from "next";
+import { AdminReservationManager } from "@/components/admin/reservations/AdminReservationManager";
+import { mockReservations } from "@/lib/mock/data";
 
-export const metadata: Metadata = {
-  title: "予約管理",
-};
+export const metadata: Metadata = { title: "予約管理" };
 
 export default function AdminReservationsPage() {
+  // 全予約をstatus別に渡す（将来はDBから取得）
+  const reservations = mockReservations;
+
   return (
     <div>
-      <h1 className="text-2xl font-light tracking-wide mb-6">予約管理</h1>
-      <p className="text-muted-foreground">
-        予約一覧・ステータス管理（実装予定）
-      </p>
+      <div className="mb-6">
+        <h1 className="text-2xl font-light tracking-wide text-stone-800">予約管理</h1>
+        <p className="text-sm text-stone-500 mt-1">予約リクエストの承認・キャンセル対応</p>
+      </div>
+      <AdminReservationManager reservations={reservations} />
     </div>
   );
 }
