@@ -291,13 +291,13 @@ export default function HomePage() {
                   </ul>
                 </div>
                 <a
-                  href="https://www.instagram.com/mayumi_golf_pro"
+                  href="https://www.instagram.com/mayumi_gf"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-sm text-stone-500 hover:text-stone-800 transition-colors"
                 >
                   <Instagram className="size-4" />
-                  @mayumi_golf_pro
+                  @mayumi_gf
                 </a>
               </div>
             </div>
