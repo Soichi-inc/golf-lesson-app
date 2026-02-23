@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft, Dumbbell, CheckCircle2, Clock, Circle } from "lucide-react";
+import { format } from "date-fns";
+import { ja } from "date-fns/locale";
+import { ChevronLeft, Dumbbell, CheckCircle2, Clock, Circle, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { createClient } from "@/lib/supabase/server";
+import { getDrillsByUserId } from "@/app/actions/drills";
 import type { Drill } from "@/types";
 
 export const metadata: Metadata = { title: "練習ドリル" };
+
+export const dynamic = "force-dynamic";
 
 const STATUS_MAP = {
   ASSIGNED:    { label: "未着手",    icon: Circle,       className: "bg-stone-100 text-stone-500 border-stone-200" },
@@ -12,9 +18,15 @@ const STATUS_MAP = {
   COMPLETED:   { label: "完了",      icon: CheckCircle2, className: "bg-emerald-50 text-emerald-600 border-emerald-200" },
 } as const;
 
-export default function MyDrillsPage() {
-  // 実装予定: Supabase から取得
-  const drills: Drill[] = [];
+export default async function MyDrillsPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  let drills: Drill[] = [];
+  if (user) {
+    drills = await getDrillsByUserId(user.id);
+  }
+
   const active = drills.filter((d) => d.status !== "COMPLETED");
   const done   = drills.filter((d) => d.status === "COMPLETED");
 
@@ -61,8 +73,9 @@ export default function MyDrillsPage() {
                               <p className="text-xs text-stone-500 leading-relaxed">{drill.description}</p>
                             )}
                             {drill.dueDate && (
-                              <p className="text-[11px] text-stone-400 mt-2">
-                                期限：{drill.dueDate.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" })}
+                              <p className="text-[11px] text-stone-400 mt-2 flex items-center gap-1">
+                                <CalendarDays className="size-3" />
+                                期限：{format(drill.dueDate, "yyyy年M月d日", { locale: ja })}
                               </p>
                             )}
                           </div>

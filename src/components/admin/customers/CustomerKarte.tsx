@@ -56,7 +56,7 @@ export function CustomerKarte({ customer }: Props) {
       </TabsContent>
 
       <TabsContent value="drills" className="mt-0">
-        <DrillList drills={customer.drills} />
+        <DrillList drills={customer.drills} userId={customer.id} />
       </TabsContent>
     </Tabs>
   );
