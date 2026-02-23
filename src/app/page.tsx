@@ -227,10 +227,14 @@ export default function HomePage() {
             <p className="mb-2 text-center text-[11px] tracking-[0.3em] text-stone-400 uppercase">Instructor</p>
             <h2 className="mb-12 text-center text-2xl font-light tracking-wide text-stone-800 sm:text-3xl">プロフィール</h2>
             <div className="flex flex-col items-start gap-10 lg:flex-row lg:gap-16">
-              {/* アバタープレースホルダー */}
+              {/* プロフィール写真 */}
               <div className="mx-auto w-full max-w-[260px] shrink-0 lg:mx-0 lg:w-64">
-                <div className="aspect-[3/4] w-full rounded-2xl bg-gradient-to-b from-stone-100 to-stone-200 flex items-end justify-center pb-6">
-                  <p className="text-xs text-stone-400">プロフィール写真</p>
+                <div className="aspect-[3/4] w-full rounded-2xl overflow-hidden">
+                  <img
+                    src="/mayumi.jpg"
+                    alt="奥村真由美プロ"
+                    className="w-full h-full object-cover object-top"
+                  />
                 </div>
               </div>
               {/* テキスト */}
