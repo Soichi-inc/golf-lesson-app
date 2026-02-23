@@ -42,7 +42,7 @@ export function ReservationHistory({ reservations }: Props) {
   }
 
   const sorted = [...reservations].sort(
-    (a, b) => b.schedule.startAt.getTime() - a.schedule.startAt.getTime()
+    (a, b) => new Date(b.schedule.startAt).getTime() - new Date(a.schedule.startAt).getTime()
   );
 
   return (
@@ -71,11 +71,11 @@ export function ReservationHistory({ reservations }: Props) {
                   <div className="flex flex-col gap-1 text-xs text-stone-500">
                     <span className="flex items-center gap-1.5">
                       <CalendarDays className="size-3" />
-                      {format(rsv.schedule.startAt, "yyyy年M月d日（E） HH:mm", {
+                      {format(new Date(rsv.schedule.startAt), "yyyy年M月d日（E） HH:mm", {
                         locale: ja,
                       })}
                       &nbsp;–&nbsp;
-                      {format(rsv.schedule.endAt, "HH:mm")}
+                      {format(new Date(rsv.schedule.endAt), "HH:mm")}
                     </span>
                     {rsv.schedule.location && (
                       <span className="flex items-center gap-1.5">

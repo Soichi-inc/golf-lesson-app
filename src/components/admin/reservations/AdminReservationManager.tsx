@@ -15,6 +15,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { updateReservationStatus } from "@/app/actions/reservations";
 import type { Reservation } from "@/types";
 
 const STATUS_MAP: Record<
@@ -49,25 +50,30 @@ export function AdminReservationManager({ reservations: initial }: Props) {
   const handleAction = async () => {
     if (!actionTarget) return;
     setIsProcessing(true);
-    await new Promise((r) => setTimeout(r, 700)); // 仮の処理
 
     const { rsv, type } = actionTarget;
-    setReservations((prev) =>
-      prev.map((r) => {
-        if (r.id !== rsv.id) return r;
-        if (type === "approve")         return { ...r, status: "CONFIRMED" as const };
-        if (type === "cancel_approve")  return { ...r, status: "CANCELLED" as const };
-        if (type === "reject")          return { ...r, status: "CANCELLED" as const };
-        return r;
-      })
-    );
+    const newStatus = type === "approve" ? "CONFIRMED" as const : "CANCELLED" as const;
 
-    const messages: Record<ActionType, string> = {
-      approve:        "予約を承認しました",
-      cancel_approve: "キャンセルを承認しました",
-      reject:         "予約リクエストを却下しました",
-    };
-    showToast(messages[type]);
+    const result = await updateReservationStatus(rsv.id, newStatus);
+
+    if (result.success) {
+      setReservations((prev) =>
+        prev.map((r) => {
+          if (r.id !== rsv.id) return r;
+          return { ...r, status: newStatus };
+        })
+      );
+
+      const messages: Record<ActionType, string> = {
+        approve:        "予約を承認しました",
+        cancel_approve: "キャンセルを承認しました",
+        reject:         "予約リクエストを却下しました",
+      };
+      showToast(messages[type]);
+    } else {
+      showToast(result.error || "処理に失敗しました");
+    }
+
     setIsProcessing(false);
     setActionTarget(null);
   };
@@ -94,8 +100,8 @@ export function AdminReservationManager({ reservations: initial }: Props) {
               </span>
               <span className="flex items-center gap-1.5">
                 <CalendarDays className="size-3 shrink-0" />
-                {format(rsv.schedule.startAt, "yyyy年M月d日（E） HH:mm", { locale: ja })} –{" "}
-                {format(rsv.schedule.endAt, "HH:mm")}
+                {format(new Date(rsv.schedule.startAt), "yyyy年M月d日（E） HH:mm", { locale: ja })} –{" "}
+                {format(new Date(rsv.schedule.endAt), "HH:mm")}
               </span>
               {rsv.schedule.location && (
                 <span className="flex items-center gap-1.5">

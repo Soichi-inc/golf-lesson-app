@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { CustomerKarte } from "@/components/admin/customers/CustomerKarte";
-import { mockCustomerDetails } from "@/lib/mock/data";
+import { getCustomerDetail } from "@/app/actions/customers";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 
@@ -15,13 +15,15 @@ export const metadata: Metadata = {
   title: "顧客カルテ",
 };
 
+export const dynamic = "force-dynamic";
+
 type Props = {
   params: Promise<{ id: string }>;
 };
 
 export default async function AdminCustomerDetailPage({ params }: Props) {
   const { id } = await params;
-  const customer = mockCustomerDetails[id];
+  const customer = await getCustomerDetail(id);
 
   if (!customer) notFound();
 
@@ -37,7 +39,7 @@ export default async function AdminCustomerDetailPage({ params }: Props) {
     <div className="space-y-6 max-w-3xl">
       {/* 戻るリンク */}
       <Button asChild variant="ghost" size="sm" className="-ml-2 text-stone-500">
-        <Link href="/admin/customers">
+        <Link href="/admin/mayumi/customers">
           <ChevronLeft className="size-4 mr-1" />
           顧客一覧に戻る
         </Link>
@@ -83,7 +85,7 @@ export default async function AdminCustomerDetailPage({ params }: Props) {
               <span className="flex items-center gap-2">
                 <CalendarDays className="size-3.5" />
                 登録日:{" "}
-                {format(customer.createdAt, "yyyy年M月d日", { locale: ja })}
+                {format(new Date(customer.createdAt), "yyyy年M月d日", { locale: ja })}
               </span>
             </div>
           </div>

@@ -14,24 +14,34 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { mockSchedules, mockReservations, mockUsers } from "@/lib/mock/data";
+import { mockSchedules } from "@/lib/mock/data";
+import { getReservations } from "@/app/actions/reservations";
+import { getCustomers } from "@/app/actions/customers";
 
 export const metadata: Metadata = {
   title: "ダッシュボード",
 };
 
-export default function AdminDashboardPage() {
+export const dynamic = "force-dynamic";
+
+export default async function AdminDashboardPage() {
   const today = startOfDay(new Date());
   const thisMonth = new Date();
 
+  // 実データを取得
+  const [allReservations, customers] = await Promise.all([
+    getReservations(),
+    getCustomers(),
+  ]);
+
   // 統計データ
-  const pendingReservations = mockReservations.filter(
+  const pendingReservations = allReservations.filter(
     (r) => r.status === "PENDING"
   );
-  const confirmedReservations = mockReservations.filter(
+  const confirmedReservations = allReservations.filter(
     (r) => r.status === "CONFIRMED"
   );
-  const totalCustomers = mockUsers.length;
+  const totalCustomers = customers.length;
 
   // 今月のスケジュール
   const monthSchedules = mockSchedules.filter((s) =>

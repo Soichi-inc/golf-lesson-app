@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
 import { CustomerTable } from "@/components/admin/customers/CustomerTable";
-import { mockUsers, mockReservations } from "@/lib/mock/data";
+import { getCustomers, getReservationCounts } from "@/app/actions/customers";
 
 export const metadata: Metadata = {
   title: "顧客管理",
 };
 
-export default function AdminCustomersPage() {
-  // 顧客ごとの予約件数（完了済み）を集計
-  const reservationCounts = mockReservations
-    .filter((r) => r.status === "COMPLETED")
-    .reduce<Record<string, number>>((acc, r) => {
-      acc[r.userId] = (acc[r.userId] ?? 0) + 1;
-      return acc;
-    }, {});
+export const dynamic = "force-dynamic";
+
+export default async function AdminCustomersPage() {
+  const [users, reservationCounts] = await Promise.all([
+    getCustomers(),
+    getReservationCounts(),
+  ]);
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -26,7 +25,7 @@ export default function AdminCustomersPage() {
         </p>
       </div>
 
-      <CustomerTable users={mockUsers} reservationCounts={reservationCounts} />
+      <CustomerTable users={users} reservationCounts={reservationCounts} />
     </div>
   );
 }

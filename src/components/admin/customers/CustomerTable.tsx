@@ -86,7 +86,7 @@ function CustomerRow({
   return (
     <li>
       <Link
-        href={`/admin/customers/${user.id}`}
+        href={`/admin/mayumi/customers/${user.id}`}
         className="flex items-center gap-4 px-5 py-4 hover:bg-stone-50 transition-colors"
       >
         {/* アバター */}
@@ -121,7 +121,7 @@ function CustomerRow({
         <div className="hidden sm:block text-right shrink-0">
           <p className="text-[11px] text-stone-400">登録日</p>
           <p className="text-xs text-stone-600">
-            {format(user.createdAt, "yyyy/MM/dd", { locale: ja })}
+            {format(new Date(user.createdAt), "yyyy/MM/dd", { locale: ja })}
           </p>
         </div>
 

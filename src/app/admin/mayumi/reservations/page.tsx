@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { AdminReservationManager } from "@/components/admin/reservations/AdminReservationManager";
-import { mockReservations } from "@/lib/mock/data";
+import { getReservations } from "@/app/actions/reservations";
 
 export const metadata: Metadata = { title: "予約管理" };
 
-export default function AdminReservationsPage() {
-  // 全予約をstatus別に渡す（将来はDBから取得）
-  const reservations = mockReservations;
+export const dynamic = "force-dynamic";
+
+export default async function AdminReservationsPage() {
+  const reservations = await getReservations();
 
   return (
     <div>
