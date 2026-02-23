@@ -2,7 +2,7 @@ import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import type { Schedule } from "@/types";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://golf-lesson-app-ten.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://golf-lesson-app-mayumi.vercel.app";
 
 /** 共通のHTMLラッパー */
 function wrap(content: string): string {
