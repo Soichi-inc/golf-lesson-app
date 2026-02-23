@@ -38,6 +38,7 @@ const formSchema = z.object({
   lessonPlanId: z.string().min(1, "レッスンプランを選択してください"),
   date: z.string().min(1, "日付を入力してください"),
   startTime: z.string().min(1, "開始時刻を入力してください"),
+  teeOffTime: z.string().optional(),
   location: z.string().optional(),
   note: z.string().optional(),
 });
@@ -59,6 +60,7 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
       lessonPlanId: "",
       date: defaultDate ? format(defaultDate, "yyyy-MM-dd") : "",
       startTime: "10:00",
+      teeOffTime: "",
       location: "",
       note: "",
     },
@@ -79,6 +81,7 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
       maxAttendees: plan.maxAttendees,
       isAvailable: true,
       note: values.note || null,
+      teeOffTime: values.teeOffTime || null,
     });
 
     form.reset();
@@ -156,6 +159,30 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
                 </FormItem>
               )}
             />
+
+            {/* ティーオフ時刻（ラウンドの場合のみ） */}
+            {(() => {
+              const selectedPlan = lessonPlans.find((p) => p.id === form.watch("lessonPlanId"));
+              if (selectedPlan?.category !== "ROUND") return null;
+              return (
+                <FormField
+                  control={form.control}
+                  name="teeOffTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ティーオフ時刻</FormLabel>
+                      <FormControl>
+                        <Input type="time" placeholder="例: 08:30" {...field} />
+                      </FormControl>
+                      <p className="text-[11px] text-stone-400">
+                        ゴルフ場のスタート時刻を入力してください
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              );
+            })()}
 
             {/* 場所 */}
             <FormField

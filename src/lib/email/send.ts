@@ -1,9 +1,10 @@
 import { Resend } from "resend";
+import { getAdminEmails } from "@/lib/supabase/admin";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
+const FALLBACK_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
 
 type SendMailOptions = {
   to: string;
@@ -30,8 +31,44 @@ export async function sendMail({ to, subject, html }: SendMailOptions) {
   }
 }
 
-/** 管理者にも通知を送信 */
+/**
+ * 全ADMINユーザーに通知メールを送信
+ * Supabase user_metadata.role === "ADMIN" のユーザーを自動検出
+ * 検出できない場合はフォールバックとして ADMIN_EMAIL 環境変数を使用
+ */
 export async function notifyAdmin({ subject, html }: { subject: string; html: string }) {
-  if (!ADMIN_EMAIL) return;
-  return sendMail({ to: ADMIN_EMAIL, subject, html });
+  try {
+    // Supabase Admin APIでADMINユーザーを自動検出
+    const adminEmails = await getAdminEmails();
+
+    // フォールバック: Supabaseから取得できない場合は環境変数を使用
+    const recipients = adminEmails.length > 0
+      ? adminEmails
+      : FALLBACK_ADMIN_EMAIL
+        ? [FALLBACK_ADMIN_EMAIL]
+        : [];
+
+    if (recipients.length === 0) {
+      console.warn("[notifyAdmin] No admin emails found");
+      return;
+    }
+
+    // 全ADMINに並行送信
+    const results = await Promise.allSettled(
+      recipients.map((email) => sendMail({ to: email, subject, html }))
+    );
+
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length > 0) {
+      console.error(`[notifyAdmin] ${failed.length}/${recipients.length} emails failed`);
+    }
+
+    return { success: true, sent: recipients.length - failed.length };
+  } catch (err) {
+    console.error("[notifyAdmin] error:", err);
+    // フォールバック送信
+    if (FALLBACK_ADMIN_EMAIL) {
+      return sendMail({ to: FALLBACK_ADMIN_EMAIL, subject, html });
+    }
+  }
 }

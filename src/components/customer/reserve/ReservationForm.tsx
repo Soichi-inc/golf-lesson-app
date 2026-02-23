@@ -116,6 +116,12 @@ export function ReservationForm({ schedule }: Props) {
                 {format(schedule.startAt, "HH:mm")} – {format(schedule.endAt, "HH:mm")}
                 （{schedule.lessonPlan.duration}分）
               </span>
+              {schedule.teeOffTime && (
+                <span className="flex items-center gap-1.5 text-amber-300">
+                  <Clock className="size-3.5 shrink-0" />
+                  ティーオフ {schedule.teeOffTime}
+                </span>
+              )}
               {schedule.location && (
                 <span className="flex items-center gap-1.5">
                   <MapPin className="size-3.5 shrink-0" />

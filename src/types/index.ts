@@ -45,6 +45,8 @@ export type Schedule = {
   maxAttendees: number;
   isAvailable: boolean;
   note: string | null;
+  /** ラウンドレッスン用: ティーオフ時刻（例: "8:30"） */
+  teeOffTime: string | null;
   createdAt: Date;
   updatedAt: Date;
 };

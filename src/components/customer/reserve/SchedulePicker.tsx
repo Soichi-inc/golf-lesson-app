@@ -232,6 +232,11 @@ export function SchedulePicker({ schedules }: Props) {
                               </Badge>
                             </div>
                             <p className="text-xs text-stone-600 mb-1">{slot.lessonPlan.name}</p>
+                            {slot.teeOffTime && (
+                              <p className="text-[11px] font-medium text-amber-600 mb-1 flex items-center gap-1">
+                                <Clock className="size-3" />ティーオフ {slot.teeOffTime}
+                              </p>
+                            )}
                             <div className="flex flex-wrap gap-3 text-[11px] text-stone-400">
                               {slot.location && (
                                 <span className="flex items-center gap-1">

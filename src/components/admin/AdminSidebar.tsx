@@ -9,6 +9,7 @@ import {
   Users,
   FileText,
   BookOpen,
+  Settings,
   ChevronRight,
   Menu,
   X,
@@ -22,23 +23,23 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 const navItems = [
   {
     label: "ダッシュボード",
-    href: "/admin",
+    href: "/admin/mayumi",
     icon: LayoutDashboard,
     exact: true,
   },
   {
     label: "スケジュール管理",
-    href: "/admin/schedule",
+    href: "/admin/mayumi/schedule",
     icon: CalendarDays,
   },
   {
     label: "予約管理",
-    href: "/admin/reservations",
+    href: "/admin/mayumi/reservations",
     icon: ClipboardList,
   },
   {
     label: "顧客管理",
-    href: "/admin/customers",
+    href: "/admin/mayumi/customers",
     icon: Users,
   },
 ] as const;
@@ -46,12 +47,12 @@ const navItems = [
 const contentItems = [
   {
     label: "プロフィール編集",
-    href: "/admin/content/profile",
+    href: "/admin/mayumi/content/profile",
     icon: FileText,
   },
   {
     label: "レッスンプラン管理",
-    href: "/admin/content/plans",
+    href: "/admin/mayumi/content/plans",
     icon: BookOpen,
   },
 ] as const;
@@ -114,6 +115,15 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
           {contentItems.map((item) => (
             <NavLink key={item.href} {...item} onClick={onClose} />
           ))}
+        </div>
+
+        <div className="pt-4">
+          <NavLink
+            href="/admin/mayumi/settings"
+            icon={Settings}
+            label="アカウント設定"
+            onClick={onClose}
+          />
         </div>
       </nav>
 

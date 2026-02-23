@@ -63,6 +63,11 @@ export function reservationRequestEmail(schedule: Schedule, concern?: string): {
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
             <td style="padding:6px 0;">${dateStr}<br>${timeStr}（${schedule.lessonPlan.duration}分）</td>
           </tr>
+          ${schedule.teeOffTime ? `
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">ティーオフ</td>
+            <td style="padding:6px 0;font-weight:500;color:#d97706;">${schedule.teeOffTime}</td>
+          </tr>` : ""}
           ${schedule.location ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
@@ -123,6 +128,11 @@ export function reservationConfirmedEmail(schedule: Schedule): { subject: string
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
             <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
           </tr>
+          ${schedule.teeOffTime ? `
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">ティーオフ</td>
+            <td style="padding:6px 0;font-weight:500;color:#d97706;">${schedule.teeOffTime}</td>
+          </tr>` : ""}
           ${schedule.location ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
@@ -167,6 +177,11 @@ export function adminNewReservationEmail(schedule: Schedule, userName: string, u
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
             <td style="padding:6px 0;">${dateStr} ${timeStr}</td>
           </tr>
+          ${schedule.teeOffTime ? `
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">ティーオフ</td>
+            <td style="padding:6px 0;font-weight:500;color:#d97706;">${schedule.teeOffTime}</td>
+          </tr>` : ""}
           ${schedule.location ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
@@ -179,7 +194,7 @@ export function adminNewReservationEmail(schedule: Schedule, userName: string, u
           </tr>` : ""}
         </table>
       </div>
-      <a href="${APP_URL}/admin/reservations" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
+      <a href="${APP_URL}/admin/mayumi/reservations" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
         管理画面で確認する
       </a>
     `),

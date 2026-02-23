@@ -129,6 +129,12 @@ function ScheduleCard({
                 {format(schedule.startAt, "HH:mm")} –{" "}
                 {format(schedule.endAt, "HH:mm")}
               </span>
+              {schedule.teeOffTime && (
+                <span className="flex items-center gap-1.5 text-amber-600">
+                  <Clock className="size-3" />
+                  ティーオフ {schedule.teeOffTime}
+                </span>
+              )}
               {schedule.location && (
                 <span className="flex items-center gap-1.5">
                   <MapPin className="size-3" />

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import {
   AdminSidebarDesktop,
   AdminSidebarMobile,
@@ -11,11 +13,24 @@ export const metadata: Metadata = {
   },
 };
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // ロールチェック: ADMINのみアクセス可
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login?next=/admin/mayumi");
+  }
+
+  const role = user.user_metadata?.role;
+  if (role !== "ADMIN") {
+    redirect("/");
+  }
+
   return (
     <div className="flex min-h-screen bg-stone-50">
       {/* デスクトップ: 固定サイドバー */}
