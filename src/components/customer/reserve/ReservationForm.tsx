@@ -6,7 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CalendarDays, MapPin, Clock, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { CalendarDays, MapPin, Clock, ChevronLeft, ChevronRight, AlertCircle, Loader2 } from "lucide-react";
+import { submitReservation } from "@/app/actions/reserve";
 import {
   Form,
   FormControl,
@@ -57,10 +58,28 @@ export function ReservationForm({ schedule }: Props) {
   const { isSubmitting } = form.formState;
 
   async function onSubmit(values: FormValues) {
-    // TODO: Supabase + Prisma で予約登録 & Resend でメール送信
-    await new Promise((r) => setTimeout(r, 800)); // モック
-    console.log("reservation submitted", { scheduleId: schedule.id, ...values });
-    router.push("/reserve/complete");
+    try {
+      const result = await submitReservation({
+        scheduleId: schedule.id,
+        concern: values.concern,
+        agreedCancelPolicy: values.agreedCancelPolicy,
+        agreedPhotoPost: values.agreedPhotoPost,
+      });
+
+      if (!result.success) {
+        // ログイン必要エラーの場合はログインページへ
+        if (result.error === "ログインが必要です") {
+          router.push("/login?redirect=/reserve/" + schedule.id);
+          return;
+        }
+        form.setError("root", { message: result.error || "予約に失敗しました" });
+        return;
+      }
+
+      router.push("/reserve/complete");
+    } catch {
+      form.setError("root", { message: "通信エラーが発生しました。もう一度お試しください。" });
+    }
   }
 
   return (
@@ -223,9 +242,19 @@ export function ReservationForm({ schedule }: Props) {
             <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-100 p-4">
               <AlertCircle className="size-4 text-amber-500 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700 leading-relaxed">
-                予約完了後、確認メールをお送りします。メールが届かない場合はスパムフォルダをご確認ください。
+                予約リクエスト後、確認メールをお送りします。講師の承認後に予約が確定します。メールが届かない場合はスパムフォルダをご確認ください。
               </p>
             </div>
+
+            {/* エラー表示 */}
+            {form.formState.errors.root && (
+              <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 p-4">
+                <AlertCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-red-700 leading-relaxed">
+                  {form.formState.errors.root.message}
+                </p>
+              </div>
+            )}
 
             {/* ナビゲーションボタン */}
             <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
@@ -243,8 +272,17 @@ export function ReservationForm({ schedule }: Props) {
                 disabled={isSubmitting}
                 className="flex-1 rounded-full bg-stone-800 hover:bg-stone-700 disabled:opacity-50"
               >
-                {isSubmitting ? "送信中..." : "予約を確定する"}
-                {!isSubmitting && <ChevronRight className="size-4 ml-1" />}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="size-4 mr-1.5 animate-spin" />
+                    送信中...
+                  </>
+                ) : (
+                  <>
+                    予約リクエストを送信
+                    <ChevronRight className="size-4 ml-1" />
+                  </>
+                )}
               </Button>
             </div>
           </form>

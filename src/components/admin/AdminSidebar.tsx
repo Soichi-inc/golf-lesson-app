@@ -91,8 +91,8 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
     <div className="flex h-full flex-col">
       {/* ロゴ */}
       <div className="px-4 py-5">
-        <p className="text-[10px] tracking-[0.2em] text-stone-400 uppercase mb-0.5">
-          Pro Golf
+        <p className="text-[10px] tracking-[0.15em] text-stone-400 uppercase mb-0.5">
+          Mayumi Okumura
         </p>
         <p className="text-base font-semibold text-stone-800 tracking-tight">
           管理画面
