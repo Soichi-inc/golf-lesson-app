@@ -1,0 +1,27 @@
+import type { Metadata } from "next";
+import { SchedulePicker } from "@/components/customer/reserve/SchedulePicker";
+import { mockSchedules } from "@/lib/mock/data";
+
+export const metadata: Metadata = { title: "スケジュール" };
+
+export default function SchedulePage() {
+  // 公開中・今日以降の空き枠のみ渡す（DB接続後はサーバーアクションに置き換え）
+  const availableSchedules = mockSchedules.filter((s) => s.isAvailable);
+
+  return (
+    <main className="section-padding">
+      <div className="content-container">
+        <div className="mb-8 text-center">
+          <p className="mb-2 text-[11px] tracking-[0.3em] text-stone-400 uppercase">Booking</p>
+          <h1 className="text-2xl font-light tracking-wide text-stone-800 sm:text-3xl">
+            レッスンを予約する
+          </h1>
+          <p className="mt-3 text-sm text-stone-500">
+            ご希望の日時をカレンダーから選んでください
+          </p>
+        </div>
+        <SchedulePicker schedules={availableSchedules} />
+      </div>
+    </main>
+  );
+}

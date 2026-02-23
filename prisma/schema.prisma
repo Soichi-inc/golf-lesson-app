@@ -1,0 +1,275 @@
+// =============================================================================
+// Prisma Schema
+// プロゴルファー レッスン予約・プロフィールサイト
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =============================================================================
+// Enums
+// =============================================================================
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum LessonCategory {
+  REGULAR
+  ROUND
+}
+
+enum DrillStatus {
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// =============================================================================
+// Models
+// =============================================================================
+
+// User: Supabase Auth と連携するアプリケーションユーザー
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  phone     String?
+  role      Role     @default(USER)
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reservations   Reservation[]
+  roundScores    RoundScore[]
+  userNotes      UserNote[]
+  drills         Drill[]
+  instructorNote InstructorNote[]
+
+  @@map("users")
+}
+
+// InstructorProfile: プロのプロフィール情報
+model InstructorProfile {
+  id            String  @id @default(cuid())
+  name          String
+  nameKana      String?
+  title         String?
+  bio           String?
+  philosophy    String?
+  avatarUrl     String?
+  coverImageUrl String?
+  instagramUrl  String?
+  twitterUrl    String?
+  youtubeUrl    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  qualifications Qualification[]
+  locations      InstructorLocation[]
+  galleryImages  GalleryImage[]
+
+  @@map("instructor_profiles")
+}
+
+// Qualification: 保有資格（LPGA, TPI 等）
+model Qualification {
+  id                  String            @id @default(cuid())
+  name                String
+  issuedBy            String?
+  issuedYear          Int?
+  displayOrder        Int               @default(0)
+  instructorProfileId String
+  instructorProfile   InstructorProfile @relation(fields: [instructorProfileId], references: [id], onDelete: Cascade)
+
+  @@map("qualifications")
+}
+
+// InstructorLocation: 活動拠点・対応ゴルフ場
+model InstructorLocation {
+  id                  String            @id @default(cuid())
+  name                String
+  area                String?
+  description         String?
+  displayOrder        Int               @default(0)
+  instructorProfileId String
+  instructorProfile   InstructorProfile @relation(fields: [instructorProfileId], references: [id], onDelete: Cascade)
+
+  @@map("instructor_locations")
+}
+
+// GalleryImage: ギャラリー画像
+model GalleryImage {
+  id                  String            @id @default(cuid())
+  url                 String
+  caption             String?
+  displayOrder        Int               @default(0)
+  instructorProfileId String
+  instructorProfile   InstructorProfile @relation(fields: [instructorProfileId], references: [id], onDelete: Cascade)
+
+  @@map("gallery_images")
+}
+
+// LessonPlan: レッスンプラン
+model LessonPlan {
+  id           String         @id @default(cuid())
+  name         String
+  category     LessonCategory
+  description  String?
+  price        Int
+  duration     Int
+  maxAttendees Int            @default(1)
+  isPublished  Boolean        @default(false)
+  displayOrder Int            @default(0)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  schedules Schedule[]
+
+  @@map("lesson_plans")
+}
+
+// Schedule: 予約可能な空き枠
+model Schedule {
+  id           String     @id @default(cuid())
+  lessonPlanId String
+  lessonPlan   LessonPlan @relation(fields: [lessonPlanId], references: [id])
+  startAt      DateTime
+  endAt        DateTime
+  location     String?
+  maxAttendees Int        @default(1)
+  isAvailable  Boolean    @default(true)
+  note         String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  reservations Reservation[]
+
+  @@index([startAt])
+  @@index([isAvailable, startAt])
+  @@map("schedules")
+}
+
+// Reservation: 予約
+model Reservation {
+  id                 String            @id @default(cuid())
+  userId             String
+  user               User              @relation(fields: [userId], references: [id])
+  scheduleId         String
+  schedule           Schedule          @relation(fields: [scheduleId], references: [id])
+  status             ReservationStatus @default(PENDING)
+  concern            String?
+  agreedCancelPolicy Boolean           @default(false)
+  agreedPhotoPost    Boolean           @default(false)
+  cancelledAt        DateTime?
+  cancelReason       String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  lessonRecord LessonRecord?
+
+  @@index([userId])
+  @@index([scheduleId])
+  @@index([status])
+  @@map("reservations")
+}
+
+// LessonRecord: レッスン完了後の記録
+model LessonRecord {
+  id            String      @id @default(cuid())
+  reservationId String      @unique
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+  lessonDate    DateTime
+  summary       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  instructorNotes InstructorNote[]
+  drills          Drill[]
+
+  @@map("lesson_records")
+}
+
+// InstructorNote: プロが顧客ごとに書く指導メモ
+model InstructorNote {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  lessonRecordId String?
+  lessonRecord   LessonRecord? @relation(fields: [lessonRecordId], references: [id])
+  content        String
+  isPrivate      Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([userId])
+  @@map("instructor_notes")
+}
+
+// Drill: プロが顧客に割り当てる練習メニュー
+model Drill {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  lessonRecordId String?
+  lessonRecord   LessonRecord? @relation(fields: [lessonRecordId], references: [id])
+  title          String
+  description    String?
+  videoUrl       String?
+  status         DrillStatus   @default(ASSIGNED)
+  dueDate        DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([userId])
+  @@map("drills")
+}
+
+// RoundScore: 顧客が登録するラウンドスコア
+model RoundScore {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  playedAt   DateTime
+  courseName String
+  score      Int
+  outScore   Int?
+  inScore    Int?
+  fairwayHit Int?
+  putts      Int?
+  memo       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, playedAt])
+  @@map("round_scores")
+}
+
+// UserNote: 顧客のミス共有ノート
+model UserNote {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String?
+  content   String
+  category  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("user_notes")
+}
