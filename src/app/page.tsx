@@ -63,24 +63,6 @@ const lessonPlans: (LessonPlan & { details: string[] })[] = [
     ],
   },
   {
-    id: "plan-private-80",
-    name: "プライベートレッスン 80分",
-    category: "REGULAR",
-    description: "じっくり時間をかけて課題を深掘り。動画分析も充実しています。",
-    price: 18000,
-    duration: 80,
-    maxAttendees: 1,
-    isPublished: true,
-    displayOrder: 1,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    details: [
-      "チケット購入でお得になります",
-      "5回チケット（PGL）¥16,500 → 1回¥3,300",
-      "詳しくはお問い合わせください",
-    ],
-  },
-  {
     id: "plan-round",
     name: "ラウンドレッスン",
     category: "ROUND",
@@ -89,7 +71,7 @@ const lessonPlans: (LessonPlan & { details: string[] })[] = [
     duration: 240,
     maxAttendees: 3,
     isPublished: true,
-    displayOrder: 2,
+    displayOrder: 1,
     createdAt: new Date(),
     updatedAt: new Date(),
     details: [
@@ -108,7 +90,7 @@ const lessonPlans: (LessonPlan & { details: string[] })[] = [
     duration: 25,
     maxAttendees: 1,
     isPublished: true,
-    displayOrder: 3,
+    displayOrder: 2,
     createdAt: new Date(),
     updatedAt: new Date(),
     details: [

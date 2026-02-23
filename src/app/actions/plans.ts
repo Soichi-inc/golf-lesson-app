@@ -34,20 +34,6 @@ const defaultPlans: PlanData[] = [
     ],
   },
   {
-    id: "plan-private-80",
-    name: "プライベートレッスン 80分",
-    category: "REGULAR",
-    tagLabel: "インドア",
-    price: 18000,
-    duration: 80,
-    maxAttendees: 1,
-    isPublished: true,
-    details: [
-      "チケット購入でお得",
-      "5回チケット（PGL）¥16,500 → 1回¥3,300",
-    ],
-  },
-  {
     id: "plan-round",
     name: "ラウンドレッスン",
     category: "ROUND",
