@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ReservationForm } from "@/components/customer/reserve/ReservationForm";
-import { mockSchedules } from "@/lib/mock/data";
+import { getScheduleById } from "@/app/actions/schedules";
 
 export const metadata: Metadata = { title: "予約フォーム" };
+
+export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ scheduleId: string }> };
 
 export default async function ReservePage({ params }: Props) {
   const { scheduleId } = await params;
-  const schedule = mockSchedules.find((s) => s.id === scheduleId && s.isAvailable);
-  if (!schedule) notFound();
+  const schedule = await getScheduleById(scheduleId);
+  if (!schedule || !schedule.isAvailable) notFound();
 
   return (
     <main className="section-padding">

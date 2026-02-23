@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { sendMail, notifyAdmin } from "@/lib/email/send";
 import { reservationRequestEmail, adminNewReservationEmail } from "@/lib/email/templates";
-import { mockSchedules } from "@/lib/mock/data";
+import { getScheduleById } from "@/app/actions/schedules";
 import { addReservation } from "@/app/actions/reservations";
 
 type ReserveInput = {
@@ -22,9 +22,9 @@ export async function submitReservation(input: ReserveInput) {
     return { success: false, error: "ログインが必要です" };
   }
 
-  // 2. スケジュールを取得（現在はモックデータから）
-  const schedule = mockSchedules.find((s) => s.id === input.scheduleId && s.isAvailable);
-  if (!schedule) {
+  // 2. スケジュールを取得（Supabase Storageから）
+  const schedule = await getScheduleById(input.scheduleId);
+  if (!schedule || !schedule.isAvailable) {
     return { success: false, error: "指定のスケジュールが見つかりません" };
   }
 

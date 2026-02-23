@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { mockSchedules } from "@/lib/mock/data";
+import { getSchedules } from "@/app/actions/schedules";
 import { getReservations } from "@/app/actions/reservations";
 import { getCustomers } from "@/app/actions/customers";
 
@@ -29,9 +29,10 @@ export default async function AdminDashboardPage() {
   const thisMonth = new Date();
 
   // 実データを取得
-  const [allReservations, customers] = await Promise.all([
+  const [allReservations, customers, allSchedules] = await Promise.all([
     getReservations(),
     getCustomers(),
+    getSchedules(),
   ]);
 
   // 統計データ
@@ -44,19 +45,19 @@ export default async function AdminDashboardPage() {
   const totalCustomers = customers.length;
 
   // 今月のスケジュール
-  const monthSchedules = mockSchedules.filter((s) =>
+  const monthSchedules = allSchedules.filter((s) =>
     isSameMonth(s.startAt, thisMonth)
   );
   const availableSlots = monthSchedules.filter((s) => s.isAvailable).length;
   const totalSlots = monthSchedules.length;
 
   // 今日の予定
-  const todaySchedules = mockSchedules
+  const todaySchedules = allSchedules
     .filter((s) => isSameDay(s.startAt, today))
     .sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
 
   // 直近の予定（今日以降、最大5件）
-  const upcomingSchedules = mockSchedules
+  const upcomingSchedules = allSchedules
     .filter((s) => !isBefore(startOfDay(s.startAt), today))
     .sort((a, b) => a.startAt.getTime() - b.startAt.getTime())
     .slice(0, 5);

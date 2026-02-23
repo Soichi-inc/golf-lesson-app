@@ -1,12 +1,19 @@
 import type { Metadata } from "next";
 import { ScheduleManager } from "@/components/admin/schedule/ScheduleManager";
-import { mockSchedules, mockLessonPlans } from "@/lib/mock/data";
+import { getSchedules, getLessonPlans } from "@/app/actions/schedules";
 
 export const metadata: Metadata = {
   title: "スケジュール管理",
 };
 
-export default function AdminSchedulePage() {
+export const dynamic = "force-dynamic";
+
+export default async function AdminSchedulePage() {
+  const [schedules, lessonPlans] = await Promise.all([
+    getSchedules(),
+    getLessonPlans(),
+  ]);
+
   return (
     <div className="space-y-6">
       {/* ページヘッダー */}
@@ -21,8 +28,8 @@ export default function AdminSchedulePage() {
 
       {/* スケジュール管理コンポーネント */}
       <ScheduleManager
-        initialSchedules={mockSchedules}
-        lessonPlans={mockLessonPlans}
+        initialSchedules={schedules}
+        lessonPlans={lessonPlans}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 "use server";
 
 import type { Reservation, ReservationStatus } from "@/types";
-import { mockSchedules } from "@/lib/mock/data";
+import { getSchedules } from "@/app/actions/schedules";
 import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
 
 // ---------------------------------------------------------------------------
@@ -78,10 +78,13 @@ export async function addReservation(input: {
 
 /** 全予約を取得（admin用 — scheduleとuser情報を含む） */
 export async function getReservations(): Promise<Reservation[]> {
-  const records = await readReservations();
+  const [records, allSchedules] = await Promise.all([
+    readReservations(),
+    getSchedules(),
+  ]);
 
   return records.map((r) => {
-    const schedule = mockSchedules.find((s) => s.id === r.scheduleId);
+    const schedule = allSchedules.find((s) => s.id === r.scheduleId);
     return {
       id: r.id,
       userId: r.userId,

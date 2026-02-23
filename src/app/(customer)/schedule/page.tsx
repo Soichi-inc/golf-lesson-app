@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import { SchedulePicker } from "@/components/customer/reserve/SchedulePicker";
-import { mockSchedules } from "@/lib/mock/data";
+import { getSchedules } from "@/app/actions/schedules";
 
 export const metadata: Metadata = { title: "スケジュール" };
 
-export default function SchedulePage() {
-  // 公開中・今日以降の空き枠のみ渡す（DB接続後はサーバーアクションに置き換え）
-  const availableSchedules = mockSchedules.filter((s) => s.isAvailable);
+export const dynamic = "force-dynamic";
+
+export default async function SchedulePage() {
+  const allSchedules = await getSchedules();
+
+  // 公開中の空き枠のみ渡す
+  const availableSchedules = allSchedules.filter((s) => s.isAvailable);
 
   return (
     <main className="section-padding">

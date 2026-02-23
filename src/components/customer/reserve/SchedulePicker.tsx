@@ -23,7 +23,28 @@ type Props = {
   schedules: Schedule[];
 };
 
-export function SchedulePicker({ schedules }: Props) {
+/** Date文字列→Date変換（Server→Clientのシリアライゼーション対策） */
+function ensureDate(v: Date | string): Date {
+  return v instanceof Date ? v : new Date(v);
+}
+
+function hydrateSchedule(s: Schedule): Schedule {
+  return {
+    ...s,
+    startAt: ensureDate(s.startAt),
+    endAt: ensureDate(s.endAt),
+    createdAt: ensureDate(s.createdAt),
+    updatedAt: ensureDate(s.updatedAt),
+    lessonPlan: {
+      ...s.lessonPlan,
+      createdAt: ensureDate(s.lessonPlan.createdAt),
+      updatedAt: ensureDate(s.lessonPlan.updatedAt),
+    },
+  };
+}
+
+export function SchedulePicker({ schedules: rawSchedules }: Props) {
+  const schedules = rawSchedules.map(hydrateSchedule);
   const router = useRouter();
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("ALL");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();

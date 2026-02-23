@@ -43,7 +43,28 @@ type Props = {
   schedule: Schedule;
 };
 
-export function ReservationForm({ schedule }: Props) {
+/** Date文字列→Date変換（Server→Clientのシリアライゼーション対策） */
+function ensureDate(v: Date | string): Date {
+  return v instanceof Date ? v : new Date(v);
+}
+
+function hydrateSchedule(s: Schedule): Schedule {
+  return {
+    ...s,
+    startAt: ensureDate(s.startAt),
+    endAt: ensureDate(s.endAt),
+    createdAt: ensureDate(s.createdAt),
+    updatedAt: ensureDate(s.updatedAt),
+    lessonPlan: {
+      ...s.lessonPlan,
+      createdAt: ensureDate(s.lessonPlan.createdAt),
+      updatedAt: ensureDate(s.lessonPlan.updatedAt),
+    },
+  };
+}
+
+export function ReservationForm({ schedule: rawSchedule }: Props) {
+  const schedule = hydrateSchedule(rawSchedule);
   const router = useRouter();
 
   const form = useForm<FormValues>({
