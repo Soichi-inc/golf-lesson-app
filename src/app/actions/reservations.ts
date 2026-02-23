@@ -1,16 +1,14 @@
 "use server";
 
-import fs from "fs/promises";
-import path from "path";
 import type { Reservation, ReservationStatus } from "@/types";
 import { mockSchedules } from "@/lib/mock/data";
+import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
 
 // ---------------------------------------------------------------------------
-// JSON file based reservation storage (MVP)
+// Supabase Storage based reservation storage (MVP)
 // ---------------------------------------------------------------------------
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const RESERVATIONS_PATH = path.join(DATA_DIR, "reservations.json");
+const FILE_PATH = "reservations.json";
 
 /** JSON内の保存形式（Dateはstring） */
 type ReservationRecord = {
@@ -31,18 +29,12 @@ type ReservationRecord = {
 
 /** 予約一覧を読み込み */
 async function readReservations(): Promise<ReservationRecord[]> {
-  try {
-    const raw = await fs.readFile(RESERVATIONS_PATH, "utf-8");
-    return JSON.parse(raw) as ReservationRecord[];
-  } catch {
-    return [];
-  }
+  return readJsonFromStorage<ReservationRecord[]>(FILE_PATH, []);
 }
 
 /** 予約一覧を保存 */
 async function writeReservations(records: ReservationRecord[]): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(RESERVATIONS_PATH, JSON.stringify(records, null, 2), "utf-8");
+  await writeJsonToStorage(FILE_PATH, records);
 }
 
 /** 予約を追加 */

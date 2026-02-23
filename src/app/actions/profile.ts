@@ -1,7 +1,6 @@
 "use server";
 
-import { readFile, writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
 
 // プロフィールデータの型
 export type ProfileData = {
@@ -44,25 +43,17 @@ const defaultProfile: ProfileData = {
   ],
 };
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const PROFILE_PATH = path.join(DATA_DIR, "profile.json");
+const PROFILE_PATH = "profile.json";
 
 export async function getProfile(): Promise<ProfileData> {
-  try {
-    const raw = await readFile(PROFILE_PATH, "utf-8");
-    return JSON.parse(raw) as ProfileData;
-  } catch {
-    // ファイルが存在しない場合はデフォルト値を返す
-    return defaultProfile;
-  }
+  return readJsonFromStorage<ProfileData>(PROFILE_PATH, defaultProfile);
 }
 
 export async function saveProfile(
   data: ProfileData
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await mkdir(DATA_DIR, { recursive: true });
-    await writeFile(PROFILE_PATH, JSON.stringify(data, null, 2), "utf-8");
+    await writeJsonToStorage(PROFILE_PATH, data);
     return { success: true };
   } catch (err) {
     console.error("[saveProfile] error:", err);

@@ -1,7 +1,6 @@
 "use server";
 
-import { readFile, writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
 
 // レッスンプランの型
 export type PlanData = {
@@ -80,24 +79,17 @@ const defaultPlans: PlanData[] = [
   },
 ];
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const PLANS_PATH = path.join(DATA_DIR, "plans.json");
+const PLANS_PATH = "plans.json";
 
 export async function getPlans(): Promise<PlanData[]> {
-  try {
-    const raw = await readFile(PLANS_PATH, "utf-8");
-    return JSON.parse(raw) as PlanData[];
-  } catch {
-    return defaultPlans;
-  }
+  return readJsonFromStorage<PlanData[]>(PLANS_PATH, defaultPlans);
 }
 
 export async function savePlans(
   plans: PlanData[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await mkdir(DATA_DIR, { recursive: true });
-    await writeFile(PLANS_PATH, JSON.stringify(plans, null, 2), "utf-8");
+    await writeJsonToStorage(PLANS_PATH, plans);
     return { success: true };
   } catch (err) {
     console.error("[savePlans] error:", err);
