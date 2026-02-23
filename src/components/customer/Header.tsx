@@ -105,11 +105,11 @@ export function CustomerHeader() {
       <div className="content-container flex items-center justify-between h-14 px-4">
         {/* ロゴ */}
         <Link href="/" className="flex flex-col leading-none">
-          <span className="text-[9px] tracking-[0.25em] text-stone-400 uppercase">
-            Pro Golf
+          <span className="text-[10px] tracking-[0.15em] text-stone-400 uppercase">
+            Mayumi Okumura
           </span>
           <span className="text-base font-semibold text-stone-800 tracking-tight">
-            Lesson
+            Official HP
           </span>
         </Link>
 
