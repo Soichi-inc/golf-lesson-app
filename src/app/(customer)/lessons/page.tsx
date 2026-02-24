@@ -46,26 +46,6 @@ const plans: Plan[] = [
     ],
   },
   {
-    id: "plan-private-80",
-    name: "プライベートレッスン 80分",
-    category: "REGULAR",
-    tagLabel: "プライベートレッスン",
-    description: "じっくり時間をかけて課題を深掘り。動画分析も充実しています。",
-    price: 18000,
-    duration: 80,
-    maxAttendees: 1,
-    details: [
-      "チケット購入でお得になります",
-      "5回チケット（PGL）¥16,500 → 1回¥3,300",
-      "詳しくはお問い合わせください",
-    ],
-    highlights: [
-      "50分プランよりじっくり取り組める",
-      "複数の課題を1回で深掘り可能",
-      "チケット購入でさらにお得",
-    ],
-  },
-  {
     id: "plan-round",
     name: "ラウンドレッスン",
     category: "ROUND",
@@ -209,7 +189,7 @@ export default function LessonsPage() {
             レッスンプラン
           </h1>
           <p className="mt-3 text-sm text-stone-500">
-            目的やレベルに合わせて選べる4つのプラン
+            目的やレベルに合わせて選べる3つのプラン
           </p>
         </div>
 
