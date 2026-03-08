@@ -213,6 +213,9 @@ export default function HomePage() {
             <AnimatedSection>
               <p className="mb-3 text-center text-[10px] font-medium tracking-[0.5em] text-[#b8945f] uppercase">Lesson Scene</p>
               <h2 className="mb-4 text-center text-3xl font-extralight tracking-wider text-white sm:text-4xl">レッスン風景</h2>
+              <p className="mx-auto mb-6 max-w-lg text-center text-sm font-light leading-relaxed text-white/50">
+                韓国で学んでいる美スイングを、皆様に丁寧にお伝えします。
+              </p>
               <div className="mx-auto mb-16 h-[1px] w-12 bg-[#b8945f]/40 sm:mb-20" />
             </AnimatedSection>
 
