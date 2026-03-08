@@ -20,6 +20,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import type { UserNote } from "@/types";
+import { addNote as addNoteAction, deleteNote as deleteNoteAction } from "@/app/actions/notes";
 
 const noteSchema = z.object({
   title: z.string().max(100).optional(),
@@ -31,11 +32,20 @@ type NoteFormValues = z.infer<typeof noteSchema>;
 
 type Props = {
   notes: UserNote[];
+  userId?: string;
 };
 
-export function MyNoteSection({ notes: initialNotes }: Props) {
+function ensureDate(v: Date | string): Date {
+  return v instanceof Date ? v : new Date(v);
+}
+
+function hydrateNote(n: UserNote): UserNote {
+  return { ...n, createdAt: ensureDate(n.createdAt), updatedAt: ensureDate(n.updatedAt) };
+}
+
+export function MyNoteSection({ notes: initialNotes, userId }: Props) {
   const [notes, setNotes] = useState(
-    [...initialNotes].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    [...initialNotes].map(hydrateNote).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
   );
   const [showForm, setShowForm] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
@@ -48,23 +58,27 @@ export function MyNoteSection({ notes: initialNotes }: Props) {
   const { isSubmitting } = form.formState;
 
   async function onSubmit(values: NoteFormValues) {
-    await new Promise((r) => setTimeout(r, 400));
-    const newNote: UserNote = {
-      id: `unote-${Date.now()}`,
-      userId: "user-1",
-      title: values.title || null,
-      category: values.category || null,
+    if (!userId) return;
+
+    const result = await addNoteAction({
+      userId,
+      title: values.title,
       content: values.content,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setNotes((prev) => [newNote, ...prev]);
-    form.reset();
-    setShowForm(false);
+      category: values.category,
+    });
+
+    if (result.success && result.note) {
+      setNotes((prev) => [hydrateNote(result.note!), ...prev]);
+      form.reset();
+      setShowForm(false);
+    }
   }
 
-  function deleteNote(id: string) {
-    setNotes((prev) => prev.filter((n) => n.id !== id));
+  async function handleDelete(id: string) {
+    const result = await deleteNoteAction(id);
+    if (result.success) {
+      setNotes((prev) => prev.filter((n) => n.id !== id));
+    }
   }
 
   const categories = Array.from(new Set(notes.map((n) => n.category).filter(Boolean))) as string[];
@@ -250,7 +264,7 @@ export function MyNoteSection({ notes: initialNotes }: Props) {
                   </div>
                 </div>
                 <button
-                  onClick={() => deleteNote(note.id)}
+                  onClick={() => handleDelete(note.id)}
                   className="shrink-0 text-stone-300 hover:text-red-400 transition-colors"
                 >
                   <Trash2 className="size-3.5" />

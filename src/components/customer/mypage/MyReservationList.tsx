@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import type { Reservation } from "@/types";
+import { updateReservationStatus } from "@/app/actions/reservations";
 
 const STATUS_MAP: Record<
   Reservation["status"],
@@ -45,7 +46,40 @@ function getCancelPolicy(lessonDate: Date): {
 
 type Props = { reservations: Reservation[] };
 
-export function MyReservationList({ reservations }: Props) {
+function ensureDate(v: Date | string): Date {
+  return v instanceof Date ? v : new Date(v);
+}
+
+function hydrateReservation(r: Reservation): Reservation {
+  return {
+    ...r,
+    createdAt: ensureDate(r.createdAt),
+    updatedAt: ensureDate(r.updatedAt),
+    cancelledAt: r.cancelledAt ? ensureDate(r.cancelledAt) : null,
+    schedule: {
+      ...r.schedule,
+      startAt: ensureDate(r.schedule.startAt),
+      endAt: ensureDate(r.schedule.endAt),
+      createdAt: ensureDate(r.schedule.createdAt),
+      updatedAt: ensureDate(r.schedule.updatedAt),
+      lessonPlan: {
+        ...r.schedule.lessonPlan,
+        createdAt: ensureDate(r.schedule.lessonPlan.createdAt),
+        updatedAt: ensureDate(r.schedule.lessonPlan.updatedAt),
+      },
+    },
+    user: {
+      ...r.user,
+      createdAt: ensureDate(r.user.createdAt),
+      updatedAt: ensureDate(r.user.updatedAt),
+    },
+  };
+}
+
+export function MyReservationList({ reservations: rawReservations }: Props) {
+  const [reservations, setReservations] = useState(() =>
+    rawReservations.map(hydrateReservation)
+  );
   const [cancelTarget, setCancelTarget] = useState<Reservation | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [doneMessage, setDoneMessage] = useState<string | null>(null);
@@ -62,20 +96,33 @@ export function MyReservationList({ reservations }: Props) {
     setIsProcessing(true);
 
     const policy = getCancelPolicy(cancelTarget.schedule.startAt);
-    // 7日前以上 → 自動キャンセル（将来的にはAPIを呼ぶ）
-    // 6日前以内 → adminへキャンセルリクエスト（将来的にはAPIを呼ぶ）
-    await new Promise((r) => setTimeout(r, 800)); // 仮の処理時間
+    const result = await updateReservationStatus(
+      cancelTarget.id,
+      "CANCELLED",
+      policy.type === "free" ? "お客様によるキャンセル（無料）" : `お客様によるキャンセル（${policy.label}）`
+    );
 
-    if (policy.type === "free") {
-      setDoneMessage("キャンセルが完了しました。");
+    if (result.success) {
+      setReservations((prev) =>
+        prev.map((r) =>
+          r.id === cancelTarget.id
+            ? { ...r, status: "CANCELLED" as const, cancelledAt: new Date(), cancelReason: policy.label }
+            : r
+        )
+      );
+      if (policy.type === "free") {
+        setDoneMessage("キャンセルが完了しました。");
+      } else {
+        setDoneMessage("キャンセルが完了しました。キャンセル料についてはお問い合わせください。");
+      }
     } else {
-      setDoneMessage("キャンセルリクエストを送信しました。講師の承認をお待ちください。");
+      setDoneMessage("キャンセルに失敗しました。もう一度お試しください。");
     }
     setIsProcessing(false);
     setCancelTarget(null);
   };
 
-  if (reservations.length === 0) {
+  if (sorted.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-stone-200 py-14 text-center">
         <CalendarDays className="mb-3 size-10 text-stone-300" />

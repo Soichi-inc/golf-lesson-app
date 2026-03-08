@@ -2,12 +2,22 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { MyReservationList } from "@/components/customer/mypage/MyReservationList";
+import { createClient } from "@/lib/supabase/server";
+import { getReservationsByUserId } from "@/app/actions/reservations";
+import type { Reservation } from "@/types";
 
 export const metadata: Metadata = { title: "予約履歴" };
 
-export default function MyReservationsPage() {
-  // 実装予定: Supabase から取得したログインユーザーの予約を渡す
-  const reservations: import("@/types").Reservation[] = [];
+export const dynamic = "force-dynamic";
+
+export default async function MyReservationsPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  let reservations: Reservation[] = [];
+  if (user) {
+    reservations = await getReservationsByUserId(user.id);
+  }
 
   return (
     <main className="section-padding">
