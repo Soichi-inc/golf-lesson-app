@@ -207,6 +207,39 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* ========== Lesson Gallery ========== */}
+        <section className="relative overflow-hidden bg-stone-900 py-24 sm:py-32">
+          <div className="content-container relative px-4">
+            <AnimatedSection>
+              <p className="mb-3 text-center text-[10px] font-medium tracking-[0.5em] text-[#b8945f] uppercase">Lesson Scene</p>
+              <h2 className="mb-4 text-center text-3xl font-extralight tracking-wider text-white sm:text-4xl">レッスン風景</h2>
+              <div className="mx-auto mb-16 h-[1px] w-12 bg-[#b8945f]/40 sm:mb-20" />
+            </AnimatedSection>
+
+            {/* Masonry-style grid */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+              {[
+                { src: "/lesson-1.jpg", alt: "レッスン風景", span: "sm:col-span-2 sm:row-span-2" },
+                { src: "/lesson-2.jpg", alt: "スイング指導", span: "" },
+                { src: "/lesson-3.jpg", alt: "フォーム確認", span: "" },
+                { src: "/lesson-4.jpg", alt: "スイング練習", span: "col-span-2 sm:col-span-1" },
+                { src: "/lesson-5.jpg", alt: "スタジオレッスン", span: "col-span-2 sm:col-span-1" },
+              ].map((img, i) => (
+                <AnimatedSection key={img.src} delay={i * 0.1} className={`${img.span}`}>
+                  <div className="group relative overflow-hidden rounded-xl aspect-[3/4] sm:aspect-auto sm:h-full min-h-[200px]">
+                    <img
+                      src={img.src}
+                      alt={img.alt}
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-black/10 transition-all duration-500 group-hover:bg-black/0" />
+                  </div>
+                </AnimatedSection>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ========== Profile ========== */}
         <section className="relative overflow-hidden bg-stone-900 py-24 sm:py-32 lg:py-40">
           {/* Subtle radial glow */}

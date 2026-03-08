@@ -17,7 +17,7 @@ export function HeroVideo() {
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
   const scale = useTransform(scrollYProgress, [0, 0.5], [1, 1.1]);
   const textY = useTransform(scrollYProgress, [0, 0.5], [0, -80]);
-  const overlayOpacity = useTransform(scrollYProgress, [0, 0.3], [0.35, 0.7]);
+  const overlayOpacity = useTransform(scrollYProgress, [0, 0.3], [0.55, 0.8]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -45,7 +45,7 @@ export function HeroVideo() {
       {/* Gradient Overlay */}
       <motion.div
         style={{ opacity: overlayOpacity }}
-        className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/80"
+        className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80"
       />
 
       {/* Subtle grain texture */}
@@ -79,7 +79,7 @@ export function HeroVideo() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.6 }}
-          className="mb-2 text-4xl font-extralight leading-tight tracking-wider text-white sm:text-6xl lg:text-7xl"
+          className="mb-2 text-4xl font-extralight leading-tight tracking-wider text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] sm:text-6xl lg:text-7xl"
         >
           美しいスイングで、
         </motion.h1>
@@ -88,7 +88,7 @@ export function HeroVideo() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.8 }}
-          className="mb-8 text-4xl font-extralight leading-tight tracking-wider sm:text-6xl lg:text-7xl"
+          className="mb-8 text-4xl font-extralight leading-tight tracking-wider drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] sm:text-6xl lg:text-7xl"
         >
           <span className="text-[#b8945f]">ゴルフをもっと楽しく。</span>
         </motion.h1>
