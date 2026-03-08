@@ -120,7 +120,7 @@ export function CustomerHeader() {
       className={cn(
         "sticky top-0 z-40 w-full transition-all duration-500",
         transparent
-          ? "bg-transparent border-b border-transparent"
+          ? "bg-gradient-to-b from-black/60 to-transparent border-b border-transparent"
           : "bg-white/95 backdrop-blur-sm border-b border-stone-100 shadow-sm"
       )}
     >
