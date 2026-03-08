@@ -30,12 +30,16 @@ function NavLink({
   exact = false,
   onClick,
   mobile = false,
+  scrolled = false,
+  isHome = false,
 }: {
   href: string;
   label: string;
   exact?: boolean;
   onClick?: () => void;
   mobile?: boolean;
+  scrolled?: boolean;
+  isHome?: boolean;
 }) {
   const pathname = usePathname();
   const isActive = exact ? pathname === href : pathname.startsWith(href);
@@ -57,14 +61,20 @@ function NavLink({
     );
   }
 
+  const transparent = isHome && !scrolled;
+
   return (
     <Link
       href={href}
       className={cn(
-        "text-sm transition-colors relative pb-0.5",
+        "text-sm transition-colors duration-300 relative pb-0.5",
         isActive
-          ? "text-stone-900 font-medium after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stone-800"
-          : "text-stone-500 hover:text-stone-800"
+          ? transparent
+            ? "text-white font-medium after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-white"
+            : "text-stone-900 font-medium after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stone-800"
+          : transparent
+            ? "text-white/70 hover:text-white"
+            : "text-stone-500 hover:text-stone-800"
       )}
     >
       {label}
@@ -75,21 +85,24 @@ function NavLink({
 export function CustomerHeader() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
   const router = useRouter();
+  const isHome = pathname === "/";
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 50);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
-
-    // 初期ユーザー取得
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
-
-    // 認証状態の変化を監視
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -100,41 +113,67 @@ export function CustomerHeader() {
     router.refresh();
   };
 
+  const transparent = isHome && !scrolled;
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-stone-100 bg-white/95 backdrop-blur-sm">
+    <header
+      className={cn(
+        "sticky top-0 z-40 w-full transition-all duration-500",
+        transparent
+          ? "bg-transparent border-b border-transparent"
+          : "bg-white/95 backdrop-blur-sm border-b border-stone-100 shadow-sm"
+      )}
+    >
       <div className="content-container flex items-center justify-between h-14 px-4">
-        {/* ロゴ */}
+        {/* Logo */}
         <Link href="/" className="flex flex-col leading-none">
-          <span className="text-[10px] tracking-[0.15em] text-stone-400 uppercase">
+          <span className={cn(
+            "text-[10px] tracking-[0.15em] uppercase transition-colors duration-300",
+            transparent ? "text-white/60" : "text-stone-400"
+          )}>
             Mayumi Okumura
           </span>
-          <span className="text-base font-semibold text-stone-800 tracking-tight">
+          <span className={cn(
+            "text-base font-semibold tracking-tight transition-colors duration-300",
+            transparent ? "text-white" : "text-stone-800"
+          )}>
             Official HP
           </span>
         </Link>
 
-        {/* デスクトップナビ */}
+        {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-7">
           {navLinks.map((link) => (
-            <NavLink key={link.href} {...link} />
+            <NavLink key={link.href} {...link} scrolled={scrolled} isHome={isHome} />
           ))}
         </nav>
 
-        {/* 右側: 予約ボタン + ユーザーメニュー + モバイルメニュー */}
+        {/* Right side */}
         <div className="flex items-center gap-2">
           <Button
             asChild
             size="sm"
-            className="hidden sm:flex bg-stone-800 hover:bg-stone-700 text-white text-xs h-8 px-4 rounded-full"
+            className={cn(
+              "hidden sm:flex text-xs h-8 px-4 rounded-full transition-all duration-300",
+              transparent
+                ? "bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm"
+                : "bg-stone-800 hover:bg-stone-700 text-white"
+            )}
           >
             <Link href="/schedule">予約する</Link>
           </Button>
 
-          {/* デスクトップ: ユーザーアイコン or ログインリンク */}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="hidden sm:flex size-8">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "hidden sm:flex size-8 transition-colors duration-300",
+                    transparent ? "text-white hover:bg-white/10" : ""
+                  )}
+                >
                   <User className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -164,7 +203,10 @@ export function CustomerHeader() {
               asChild
               variant="ghost"
               size="icon"
-              className="hidden sm:flex size-8"
+              className={cn(
+                "hidden sm:flex size-8 transition-colors duration-300",
+                transparent ? "text-white hover:bg-white/10" : ""
+              )}
             >
               <Link href="/auth/login" aria-label="ログイン">
                 <LogIn className="size-4" />
@@ -172,13 +214,16 @@ export function CustomerHeader() {
             </Button>
           )}
 
-          {/* モバイルハンバーガー */}
+          {/* Mobile hamburger */}
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden size-9"
+                className={cn(
+                  "md:hidden size-9 transition-colors duration-300",
+                  transparent ? "text-white hover:bg-white/10" : ""
+                )}
                 aria-label="メニュー"
               >
                 <Menu className="size-5" />
