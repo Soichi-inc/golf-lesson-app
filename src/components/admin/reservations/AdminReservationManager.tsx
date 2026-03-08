@@ -15,7 +15,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { updateReservationStatus } from "@/app/actions/reservations";
+import { updateReservationStatus, approveReservation, rejectReservation } from "@/app/actions/reservations";
 import type { Reservation } from "@/types";
 
 const STATUS_MAP: Record<
@@ -54,7 +54,11 @@ export function AdminReservationManager({ reservations: initial }: Props) {
     const { rsv, type } = actionTarget;
     const newStatus = type === "approve" ? "CONFIRMED" as const : "CANCELLED" as const;
 
-    const result = await updateReservationStatus(rsv.id, newStatus);
+    const result = type === "approve"
+      ? await approveReservation(rsv.id)
+      : type === "reject"
+        ? await rejectReservation(rsv.id)
+        : await updateReservationStatus(rsv.id, newStatus);
 
     if (result.success) {
       setReservations((prev) =>

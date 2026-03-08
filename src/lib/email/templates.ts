@@ -1,8 +1,16 @@
 import { format } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 import { ja } from "date-fns/locale";
 import type { Schedule } from "@/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://golf-lesson-app-mayumi.vercel.app";
+const TZ = "Asia/Tokyo";
+
+/** 日本時間に変換してフォーマット */
+function fmtJST(date: Date | string, fmt: string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return format(toZonedTime(d, TZ), fmt, { locale: ja });
+}
 
 /** 共通のHTMLラッパー */
 function wrap(content: string): string {
@@ -32,11 +40,53 @@ function wrap(content: string): string {
 </html>`;
 }
 
+/** スケジュール情報テーブル（共通パーツ） */
+function scheduleTable(schedule: Schedule, bgColor = "#fafaf9"): string {
+  const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
+  const timeStr = `${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(schedule.endAt, "HH:mm")}`;
+  const isRound = schedule.lessonPlan.category === "ROUND";
+
+  return `
+    <div style="background:${bgColor};border-radius:12px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
+        <tr>
+          <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">種別</td>
+          <td style="padding:6px 0;font-weight:500;">${isRound ? "ラウンドレッスン" : "インドアレッスン"}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
+          <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
+          <td style="padding:6px 0;">${dateStr}<br>${timeStr}（${schedule.lessonPlan.duration}分）</td>
+        </tr>
+        ${schedule.teeOffTime ? `
+        <tr>
+          <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">ティーオフ</td>
+          <td style="padding:6px 0;font-weight:500;color:#d97706;">${schedule.teeOffTime}</td>
+        </tr>` : ""}
+        ${schedule.location ? `
+        <tr>
+          <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
+          <td style="padding:6px 0;">${schedule.location}</td>
+        </tr>` : ""}
+        ${schedule.note ? `
+        <tr>
+          <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">備考</td>
+          <td style="padding:6px 0;">${schedule.note}</td>
+        </tr>` : ""}
+        <tr>
+          <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">料金</td>
+          <td style="padding:6px 0;font-weight:600;">¥${schedule.lessonPlan.price.toLocaleString()}（税込）</td>
+        </tr>
+      </table>
+    </div>`;
+}
+
 /** 予約リクエスト受付メール（ユーザー向け） */
 export function reservationRequestEmail(schedule: Schedule, concern?: string): { subject: string; html: string } {
-  const dateStr = format(schedule.startAt, "yyyy年M月d日（E）", { locale: ja });
-  const timeStr = `${format(schedule.startAt, "HH:mm")} – ${format(schedule.endAt, "HH:mm")}`;
-  const isRound = schedule.lessonPlan.category === "ROUND";
+  const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
 
   return {
     subject: `【予約リクエスト受付】${dateStr} ${schedule.lessonPlan.name}`,
@@ -49,41 +99,7 @@ export function reservationRequestEmail(schedule: Schedule, concern?: string): {
         講師が確認のうえ、承認しましたらメールにてお知らせいたします。
       </p>
 
-      <div style="background:#fafaf9;border-radius:12px;padding:20px;margin-bottom:24px;">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
-          <tr>
-            <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">種別</td>
-            <td style="padding:6px 0;font-weight:500;">${isRound ? "ラウンドレッスン" : "インドアレッスン"}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
-            <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
-            <td style="padding:6px 0;">${dateStr}<br>${timeStr}（${schedule.lessonPlan.duration}分）</td>
-          </tr>
-          ${schedule.teeOffTime ? `
-          <tr>
-            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">ティーオフ</td>
-            <td style="padding:6px 0;font-weight:500;color:#d97706;">${schedule.teeOffTime}</td>
-          </tr>` : ""}
-          ${schedule.location ? `
-          <tr>
-            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
-            <td style="padding:6px 0;">${schedule.location}</td>
-          </tr>` : ""}
-          ${schedule.note ? `
-          <tr>
-            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">備考</td>
-            <td style="padding:6px 0;">${schedule.note}</td>
-          </tr>` : ""}
-          <tr>
-            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">料金</td>
-            <td style="padding:6px 0;font-weight:600;">¥${schedule.lessonPlan.price.toLocaleString()}（税込）</td>
-          </tr>
-        </table>
-      </div>
+      ${scheduleTable(schedule)}
 
       ${concern ? `
       <div style="background:#fffbeb;border-radius:12px;padding:16px;margin-bottom:24px;">
@@ -104,8 +120,8 @@ export function reservationRequestEmail(schedule: Schedule, concern?: string): {
 
 /** 予約承認メール（ユーザー向け） */
 export function reservationConfirmedEmail(schedule: Schedule): { subject: string; html: string } {
-  const dateStr = format(schedule.startAt, "yyyy年M月d日（E）", { locale: ja });
-  const timeStr = `${format(schedule.startAt, "HH:mm")} – ${format(schedule.endAt, "HH:mm")}`;
+  const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
+  const timeStr = `${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(schedule.endAt, "HH:mm")}`;
 
   return {
     subject: `【予約確定】${dateStr} ${schedule.lessonPlan.name}`,
@@ -118,32 +134,7 @@ export function reservationConfirmedEmail(schedule: Schedule): { subject: string
         当日お会いできることを楽しみにしています！
       </p>
 
-      <div style="background:#f0fdf4;border-radius:12px;padding:20px;margin-bottom:24px;">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
-          <tr>
-            <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">日時</td>
-            <td style="padding:6px 0;font-weight:500;">${dateStr} ${timeStr}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
-            <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
-          </tr>
-          ${schedule.teeOffTime ? `
-          <tr>
-            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">ティーオフ</td>
-            <td style="padding:6px 0;font-weight:500;color:#d97706;">${schedule.teeOffTime}</td>
-          </tr>` : ""}
-          ${schedule.location ? `
-          <tr>
-            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
-            <td style="padding:6px 0;">${schedule.location}</td>
-          </tr>` : ""}
-          <tr>
-            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">料金</td>
-            <td style="padding:6px 0;font-weight:600;">¥${schedule.lessonPlan.price.toLocaleString()}（税込）</td>
-          </tr>
-        </table>
-      </div>
+      ${scheduleTable(schedule, "#f0fdf4")}
 
       <a href="${APP_URL}/mypage/reservations" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
         マイページで確認する
@@ -152,10 +143,40 @@ export function reservationConfirmedEmail(schedule: Schedule): { subject: string
   };
 }
 
+/** 予約却下メール（ユーザー向け） */
+export function reservationRejectedEmail(schedule: Schedule, reason?: string): { subject: string; html: string } {
+  const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
+
+  return {
+    subject: `【予約リクエスト不承認】${dateStr} ${schedule.lessonPlan.name}`,
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#292524;font-size:18px;font-weight:500;">
+        予約リクエストが承認されませんでした
+      </h2>
+      <p style="margin:0 0 24px;color:#78716c;font-size:14px;line-height:1.7;">
+        申し訳ございませんが、以下のレッスンの予約リクエストは承認されませんでした。<br>
+        別の日程で改めてご予約いただけますと幸いです。
+      </p>
+
+      ${scheduleTable(schedule, "#fef2f2")}
+
+      ${reason ? `
+      <div style="background:#fef2f2;border-radius:12px;padding:16px;margin-bottom:24px;">
+        <p style="margin:0 0 4px;color:#a8a29e;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">理由</p>
+        <p style="margin:0;color:#44403c;font-size:13px;line-height:1.7;">${reason}</p>
+      </div>` : ""}
+
+      <a href="${APP_URL}/schedule" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
+        他の日程を探す
+      </a>
+    `),
+  };
+}
+
 /** 管理者向け新規予約通知 */
 export function adminNewReservationEmail(schedule: Schedule, userName: string, userEmail: string, concern?: string): { subject: string; html: string } {
-  const dateStr = format(schedule.startAt, "yyyy年M月d日（E）", { locale: ja });
-  const timeStr = `${format(schedule.startAt, "HH:mm")} – ${format(schedule.endAt, "HH:mm")}`;
+  const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
+  const timeStr = `${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(schedule.endAt, "HH:mm")}`;
 
   return {
     subject: `【新規予約リクエスト】${userName} - ${dateStr}`,
@@ -192,6 +213,77 @@ export function adminNewReservationEmail(schedule: Schedule, userName: string, u
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">相談内容</td>
             <td style="padding:6px 0;">${concern}</td>
           </tr>` : ""}
+        </table>
+      </div>
+      <a href="${APP_URL}/admin/mayumi/reservations" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
+        管理画面で確認する
+      </a>
+    `),
+  };
+}
+
+/** 管理者向け予約承認通知 */
+export function adminReservationApprovedEmail(schedule: Schedule, userName: string, userEmail: string): { subject: string; html: string } {
+  const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
+
+  return {
+    subject: `【予約承認済】${userName} - ${dateStr}`,
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#16a34a;font-size:18px;font-weight:500;">
+        予約が承認されました
+      </h2>
+      <div style="background:#f0fdf4;border-radius:12px;padding:20px;margin:16px 0 24px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">お客様</td>
+            <td style="padding:6px 0;font-weight:500;">${userName}<br><span style="color:#78716c;font-weight:normal;">${userEmail}</span></td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
+            <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
+            <td style="padding:6px 0;">${dateStr} ${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(schedule.endAt, "HH:mm")}</td>
+          </tr>
+          ${schedule.location ? `
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
+            <td style="padding:6px 0;">${schedule.location}</td>
+          </tr>` : ""}
+        </table>
+      </div>
+      <a href="${APP_URL}/admin/mayumi/reservations" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
+        管理画面で確認する
+      </a>
+    `),
+  };
+}
+
+/** 管理者向け予約却下通知 */
+export function adminReservationRejectedEmail(schedule: Schedule, userName: string, userEmail: string): { subject: string; html: string } {
+  const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
+
+  return {
+    subject: `【予約却下済】${userName} - ${dateStr}`,
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#dc2626;font-size:18px;font-weight:500;">
+        予約リクエストが却下されました
+      </h2>
+      <div style="background:#fef2f2;border-radius:12px;padding:20px;margin:16px 0 24px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">お客様</td>
+            <td style="padding:6px 0;font-weight:500;">${userName}<br><span style="color:#78716c;font-weight:normal;">${userEmail}</span></td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
+            <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
+            <td style="padding:6px 0;">${dateStr} ${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(schedule.endAt, "HH:mm")}</td>
+          </tr>
         </table>
       </div>
       <a href="${APP_URL}/admin/mayumi/reservations" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">

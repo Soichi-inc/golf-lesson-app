@@ -1,8 +1,15 @@
 "use server";
 
 import type { Reservation, ReservationStatus } from "@/types";
-import { getSchedules } from "@/app/actions/schedules";
+import { getSchedules, getScheduleById } from "@/app/actions/schedules";
 import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
+import { sendMail, notifyAdmin } from "@/lib/email/send";
+import {
+  reservationConfirmedEmail,
+  reservationRejectedEmail,
+  adminReservationApprovedEmail,
+  adminReservationRejectedEmail,
+} from "@/lib/email/templates";
 
 // ---------------------------------------------------------------------------
 // Supabase Storage based reservation storage (MVP)
@@ -167,4 +174,77 @@ export async function updateReservationStatus(
 export async function getReservationsByUserId(userId: string): Promise<Reservation[]> {
   const all = await getReservations();
   return all.filter((r) => r.userId === userId);
+}
+
+/** 予約を承認（CONFIRMED）＋ 顧客・管理者にメール送信 */
+export async function approveReservation(
+  reservationId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const records = await readReservations();
+    const record = records.find((r) => r.id === reservationId);
+    if (!record) return { success: false, error: "予約が見つかりません" };
+
+    // ステータス更新
+    const result = await updateReservationStatus(reservationId, "CONFIRMED");
+    if (!result.success) return result;
+
+    // スケジュール取得
+    const schedule = await getScheduleById(record.scheduleId);
+    if (!schedule) return { success: true }; // ステータス更新は成功、メールはスキップ
+
+    const userName = record.userName || record.userEmail || "お客様";
+
+    // 顧客にメール送信
+    if (record.userEmail) {
+      const { subject, html } = reservationConfirmedEmail(schedule);
+      await sendMail({ to: record.userEmail, subject, html }).catch(console.error);
+    }
+
+    // 管理者にメール通知
+    const adminTemplate = adminReservationApprovedEmail(schedule, userName, record.userEmail);
+    await notifyAdmin(adminTemplate).catch(console.error);
+
+    return { success: true };
+  } catch (e) {
+    console.error("[approveReservation]", e);
+    return { success: false, error: "承認処理に失敗しました" };
+  }
+}
+
+/** 予約を却下（CANCELLED）＋ 顧客・管理者にメール送信 */
+export async function rejectReservation(
+  reservationId: string,
+  cancelReason?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const records = await readReservations();
+    const record = records.find((r) => r.id === reservationId);
+    if (!record) return { success: false, error: "予約が見つかりません" };
+
+    // ステータス更新
+    const result = await updateReservationStatus(reservationId, "CANCELLED", cancelReason);
+    if (!result.success) return result;
+
+    // スケジュール取得
+    const schedule = await getScheduleById(record.scheduleId);
+    if (!schedule) return { success: true };
+
+    const userName = record.userName || record.userEmail || "お客様";
+
+    // 顧客にメール送信
+    if (record.userEmail) {
+      const { subject, html } = reservationRejectedEmail(schedule, cancelReason);
+      await sendMail({ to: record.userEmail, subject, html }).catch(console.error);
+    }
+
+    // 管理者にメール通知
+    const adminTemplate = adminReservationRejectedEmail(schedule, userName, record.userEmail);
+    await notifyAdmin(adminTemplate).catch(console.error);
+
+    return { success: true };
+  } catch (e) {
+    console.error("[rejectReservation]", e);
+    return { success: false, error: "却下処理に失敗しました" };
+  }
 }
