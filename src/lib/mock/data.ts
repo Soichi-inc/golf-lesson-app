@@ -226,5 +226,7 @@ export const mockCustomerDetails: Record<string, CustomerDetail> = {
     reservations: [],
     instructorNotes: [],
     drills: [],
+    roundScores: [],
+    userNotes: [],
   },
 };
