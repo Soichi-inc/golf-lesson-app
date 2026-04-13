@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CalendarDays, MapPin, Clock, ChevronLeft, ChevronRight, AlertCircle, Loader2 } from "lucide-react";
+import { CalendarDays, MapPin, Clock, ChevronLeft, ChevronRight, AlertCircle, Loader2, Video, CreditCard } from "lucide-react";
 import { submitReservation } from "@/app/actions/reserve";
 import {
   Form,
@@ -22,12 +22,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import type { Schedule } from "@/types";
 
+const OPTION_SWING_VIDEO_PRICE = 3000;
+
 const formSchema = z.object({
   concern: z.string().max(500, "500文字以内で入力してください").optional(),
   agreedCancelPolicy: z.literal(true, {
     error: "キャンセルポリシーへの同意は必須です",
   }),
   agreedPhotoPost: z.boolean(),
+  optionSwingVideo: z.boolean(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -73,10 +76,13 @@ export function ReservationForm({ schedule: rawSchedule }: Props) {
       concern: "",
       agreedCancelPolicy: undefined,
       agreedPhotoPost: false,
+      optionSwingVideo: false,
     },
   });
 
   const { isSubmitting } = form.formState;
+  const watchSwingVideo = form.watch("optionSwingVideo");
+  const totalPrice = schedule.lessonPlan.price + (watchSwingVideo ? OPTION_SWING_VIDEO_PRICE : 0);
 
   async function onSubmit(values: FormValues) {
     try {
@@ -85,6 +91,7 @@ export function ReservationForm({ schedule: rawSchedule }: Props) {
         concern: values.concern,
         agreedCancelPolicy: values.agreedCancelPolicy,
         agreedPhotoPost: values.agreedPhotoPost,
+        optionSwingVideo: values.optionSwingVideo,
       });
 
       if (!result.success) {
@@ -152,8 +159,13 @@ export function ReservationForm({ schedule: rawSchedule }: Props) {
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-lg font-light">¥{schedule.lessonPlan.price.toLocaleString()}</p>
+            <p className="text-lg font-light">¥{totalPrice.toLocaleString()}</p>
             <p className="text-[11px] text-stone-400">税込</p>
+            {watchSwingVideo && (
+              <p className="text-[10px] text-stone-400 mt-1">
+                レッスン ¥{schedule.lessonPlan.price.toLocaleString()} + 撮影 ¥{OPTION_SWING_VIDEO_PRICE.toLocaleString()}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -188,6 +200,63 @@ export function ReservationForm({ schedule: rawSchedule }: Props) {
                 </FormItem>
               )}
             />
+
+            {/* 撮影オプション */}
+            <FormField
+              control={form.control}
+              name="optionSwingVideo"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="space-y-3">
+                    <FormLabel className="text-sm font-medium text-stone-700">
+                      撮影オプション
+                      <span className="ml-2 text-[11px] font-normal text-stone-400">任意</span>
+                    </FormLabel>
+                    <div className={`rounded-xl border p-4 transition-colors ${field.value ? "border-amber-300 bg-amber-50/50" : "border-stone-200"}`}>
+                      <div className="flex items-start gap-3">
+                        <FormControl>
+                          <Checkbox
+                            id="swing-video"
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            className="mt-0.5"
+                          />
+                        </FormControl>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <label
+                              htmlFor="swing-video"
+                              className="text-sm font-medium text-stone-700 cursor-pointer flex items-center gap-1.5"
+                            >
+                              <Video className="size-3.5 text-stone-500" />
+                              スイング動画＋ポイント解説
+                            </label>
+                            <span className="text-sm font-semibold text-stone-800 shrink-0">
+                              ¥{OPTION_SWING_VIDEO_PRICE.toLocaleString()}
+                              <span className="text-[10px] font-normal text-stone-400 ml-0.5">税込</span>
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-stone-500 leading-relaxed">
+                            レッスンで撮影したスイング動画を元に、ポイントを解説。復習や自主練習に活用できます。
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {/* お支払い方法 */}
+            <div className="rounded-xl bg-stone-50 border border-stone-200 p-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <CreditCard className="size-3.5 text-stone-500" />
+                <p className="text-sm font-medium text-stone-700">お支払い方法</p>
+              </div>
+              <p className="text-xs text-stone-500 leading-relaxed">
+                当日会場にてお支払いいただきます。カード決済（Square）・現金・PayPayに対応しております。
+              </p>
+            </div>
 
             {/* キャンセルポリシー同意 */}
             <FormField

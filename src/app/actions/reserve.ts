@@ -11,6 +11,7 @@ type ReserveInput = {
   concern?: string;
   agreedCancelPolicy: boolean;
   agreedPhotoPost: boolean;
+  optionSwingVideo?: boolean;
 };
 
 export async function submitReservation(input: ReserveInput) {
@@ -40,6 +41,7 @@ export async function submitReservation(input: ReserveInput) {
     concern: input.concern,
     agreedCancelPolicy: input.agreedCancelPolicy,
     agreedPhotoPost: input.agreedPhotoPost,
+    optionSwingVideo: input.optionSwingVideo,
   });
 
   if (!saveResult.success) {

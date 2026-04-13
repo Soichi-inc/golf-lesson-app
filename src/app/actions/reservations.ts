@@ -28,6 +28,7 @@ type ReservationRecord = {
   concern: string | null;
   agreedCancelPolicy: boolean;
   agreedPhotoPost: boolean;
+  optionSwingVideo: boolean;
   cancelledAt: string | null;
   cancelReason: string | null;
   createdAt: string;
@@ -53,6 +54,7 @@ export async function addReservation(input: {
   concern?: string;
   agreedCancelPolicy: boolean;
   agreedPhotoPost: boolean;
+  optionSwingVideo?: boolean;
 }): Promise<{ success: boolean; reservationId?: string; error?: string }> {
   try {
     const records = await readReservations();
@@ -69,6 +71,7 @@ export async function addReservation(input: {
       concern: input.concern || null,
       agreedCancelPolicy: input.agreedCancelPolicy,
       agreedPhotoPost: input.agreedPhotoPost,
+      optionSwingVideo: input.optionSwingVideo ?? false,
       cancelledAt: null,
       cancelReason: null,
       createdAt: now,
