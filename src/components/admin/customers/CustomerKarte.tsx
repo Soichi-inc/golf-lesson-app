@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReservationHistory } from "./ReservationHistory";
 import { InstructorNoteEditor } from "./InstructorNoteEditor";
 import { DrillList } from "./DrillList";
+import { RoundScoreHistory } from "./RoundScoreHistory";
 import type { CustomerDetail } from "@/types";
 
 type Props = {
@@ -42,6 +43,14 @@ export function CustomerKarte({ customer }: Props) {
             </span>
           )}
         </TabsTrigger>
+        <TabsTrigger value="scores" className="text-xs">
+          スコア
+          {customer.roundScores.length > 0 && (
+            <span className="ml-1.5 text-[10px] bg-stone-300 text-stone-700 rounded-full px-1.5">
+              {customer.roundScores.length}
+            </span>
+          )}
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="reservations" className="mt-0">
@@ -57,6 +66,10 @@ export function CustomerKarte({ customer }: Props) {
 
       <TabsContent value="drills" className="mt-0">
         <DrillList drills={customer.drills} userId={customer.id} />
+      </TabsContent>
+
+      <TabsContent value="scores" className="mt-0">
+        <RoundScoreHistory scores={customer.roundScores} />
       </TabsContent>
     </Tabs>
   );

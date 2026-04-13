@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
+import { addInstructorNote, deleteInstructorNote } from "@/app/actions/instructorNotes";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -37,6 +38,7 @@ type Props = {
 export function InstructorNoteEditor({ initialNotes, userId }: Props) {
   const [notes, setNotes] = useState<InstructorNote[]>(initialNotes);
   const [showForm, setShowForm] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const form = useForm<NoteFormValues>({
     resolver: zodResolver(noteSchema),
@@ -44,24 +46,28 @@ export function InstructorNoteEditor({ initialNotes, userId }: Props) {
   });
 
   function onSubmit(values: NoteFormValues) {
-    const newNote: InstructorNote = {
-      id: `note-${Date.now()}`,
-      userId,
-      lessonRecordId: null,
-      content: values.content,
-      isPrivate: values.isPrivate,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setNotes((prev) => [newNote, ...prev]);
-    form.reset({ content: "", isPrivate: true });
-    setShowForm(false);
+    startTransition(async () => {
+      const result = await addInstructorNote({
+        userId,
+        content: values.content,
+        isPrivate: values.isPrivate,
+      });
+      if (result.success && result.note) {
+        setNotes((prev) => [result.note!, ...prev]);
+        form.reset({ content: "", isPrivate: true });
+        setShowForm(false);
+      }
+    });
   }
 
   function handleDelete(id: string) {
-    if (confirm("このメモを削除しますか？")) {
-      setNotes((prev) => prev.filter((n) => n.id !== id));
-    }
+    if (!confirm("このメモを削除しますか？")) return;
+    startTransition(async () => {
+      const result = await deleteInstructorNote(id);
+      if (result.success) {
+        setNotes((prev) => prev.filter((n) => n.id !== id));
+      }
+    });
   }
 
   return (
@@ -129,8 +135,9 @@ export function InstructorNoteEditor({ initialNotes, userId }: Props) {
                     type="submit"
                     size="sm"
                     className="bg-stone-800 hover:bg-stone-700"
+                    disabled={isPending}
                   >
-                    保存
+                    {isPending ? "保存中..." : "保存"}
                   </Button>
                   <Button
                     type="button"

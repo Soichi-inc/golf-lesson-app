@@ -125,4 +125,5 @@ export type CustomerDetail = User & {
   reservations: (Reservation & { schedule: Schedule & { lessonPlan: LessonPlan } })[];
   instructorNotes: InstructorNote[];
   drills: Drill[];
+  roundScores: RoundScore[];
 };

@@ -3,6 +3,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getReservations, getReservationsByUserId } from "@/app/actions/reservations";
 import { getDrillsByUserId } from "@/app/actions/drills";
+import { getInstructorNotesByUserId } from "@/app/actions/instructorNotes";
+import { getScoresByUserId } from "@/app/actions/scores";
 import type { User, CustomerDetail } from "@/types";
 
 /** Supabase Authから全USER（非ADMIN）を取得 */
@@ -51,9 +53,11 @@ export async function getCustomerDetail(userId: string): Promise<CustomerDetail 
   // ADMINユーザーはカルテ対象外
   if (user.user_metadata?.role === "ADMIN") return null;
 
-  const [reservations, drills] = await Promise.all([
+  const [reservations, drills, instructorNotes, roundScores] = await Promise.all([
     getReservationsByUserId(userId),
     getDrillsByUserId(userId),
+    getInstructorNotesByUserId(userId),
+    getScoresByUserId(userId),
   ]);
 
   return {
@@ -72,7 +76,8 @@ export async function getCustomerDetail(userId: string): Promise<CustomerDetail 
         lessonPlan: r.schedule.lessonPlan,
       },
     })),
-    instructorNotes: [],
+    instructorNotes,
     drills,
+    roundScores,
   };
 }

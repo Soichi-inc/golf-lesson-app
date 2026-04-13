@@ -260,6 +260,37 @@ export function adminReservationApprovedEmail(schedule: Schedule, userName: stri
   };
 }
 
+/** 指導メモ通知メール（顧客向け） */
+export function instructorNoteEmail(
+  customerName: string,
+  noteContent: string
+): { subject: string; html: string } {
+  return {
+    subject: "【指導メモ】講師からメッセージが届きました",
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#292524;font-size:18px;font-weight:500;">
+        講師からメモが届きました
+      </h2>
+      <p style="margin:0 0 24px;color:#78716c;font-size:14px;line-height:1.7;">
+        ${customerName}様、講師から新しい指導メモが投稿されました。
+      </p>
+
+      <div style="background:#fafaf9;border-radius:12px;padding:20px;margin-bottom:24px;">
+        <p style="margin:0 0 4px;color:#a8a29e;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">指導メモ</p>
+        <p style="margin:0;color:#44403c;font-size:13px;line-height:1.7;white-space:pre-wrap;">${noteContent}</p>
+      </div>
+
+      <a href="${APP_URL}/mypage/instructor-notes" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
+        マイページで確認する
+      </a>
+
+      <p style="margin:24px 0 0;color:#a8a29e;font-size:12px;line-height:1.6;">
+        ※このメールは自動送信です。心当たりのない場合はお手数ですがご連絡ください。
+      </p>
+    `),
+  };
+}
+
 /** 管理者向け予約却下通知 */
 export function adminReservationRejectedEmail(schedule: Schedule, userName: string, userEmail: string): { subject: string; html: string } {
   const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
