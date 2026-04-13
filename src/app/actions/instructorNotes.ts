@@ -1,49 +1,55 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import type { InstructorNote } from "@/types";
+import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMail } from "@/lib/email/send";
 import { instructorNoteEmail } from "@/lib/email/templates";
-import type { InstructorNote } from "@/types";
+
+const FILE_PATH = "instructor-notes.json";
+
+type NoteRecord = {
+  id: string;
+  userId: string;
+  lessonRecordId: string | null;
+  content: string;
+  isPrivate: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+async function readNotes(): Promise<NoteRecord[]> {
+  return readJsonFromStorage<NoteRecord[]>(FILE_PATH, []);
+}
+
+async function writeNotes(records: NoteRecord[]): Promise<void> {
+  await writeJsonToStorage(FILE_PATH, records);
+}
+
+function toInstructorNote(r: NoteRecord): InstructorNote {
+  return {
+    ...r,
+    createdAt: new Date(r.createdAt),
+    updatedAt: new Date(r.updatedAt),
+  };
+}
 
 /** 管理者用: ユーザーの全指導メモを取得 */
 export async function getInstructorNotesByUserId(
   userId: string
 ): Promise<InstructorNote[]> {
-  const notes = await prisma.instructorNote.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return notes.map((n: Record<string, unknown>) => ({
-    id: n.id as string,
-    userId: n.userId as string,
-    lessonRecordId: (n.lessonRecordId as string) || null,
-    content: n.content as string,
-    isPrivate: n.isPrivate as boolean,
-    createdAt: new Date(n.createdAt as string),
-    updatedAt: new Date(n.updatedAt as string),
-  }));
+  const records = await readNotes();
+  return records.filter((r) => r.userId === userId).map(toInstructorNote);
 }
 
 /** 顧客用: 公開メモのみ取得 */
 export async function getPublicInstructorNotesByUserId(
   userId: string
 ): Promise<InstructorNote[]> {
-  const notes = await prisma.instructorNote.findMany({
-    where: { userId, isPrivate: false },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return notes.map((n: Record<string, unknown>) => ({
-    id: n.id as string,
-    userId: n.userId as string,
-    lessonRecordId: (n.lessonRecordId as string) || null,
-    content: n.content as string,
-    isPrivate: n.isPrivate as boolean,
-    createdAt: new Date(n.createdAt as string),
-    updatedAt: new Date(n.updatedAt as string),
-  }));
+  const records = await readNotes();
+  return records
+    .filter((r) => r.userId === userId && !r.isPrivate)
+    .map(toInstructorNote);
 }
 
 /** 指導メモを追加 */
@@ -53,30 +59,29 @@ export async function addInstructorNote(input: {
   isPrivate: boolean;
 }): Promise<{ success: boolean; note?: InstructorNote; error?: string }> {
   try {
-    const created = await prisma.instructorNote.create({
-      data: {
-        userId: input.userId,
-        content: input.content,
-        isPrivate: input.isPrivate,
-      },
-    });
+    const records = await readNotes();
+    const id = `inote-${Date.now()}`;
+    const now = new Date().toISOString();
 
-    const note: InstructorNote = {
-      id: created.id,
-      userId: created.userId,
-      lessonRecordId: created.lessonRecordId || null,
-      content: created.content,
-      isPrivate: created.isPrivate,
-      createdAt: new Date(created.createdAt),
-      updatedAt: new Date(created.updatedAt),
+    const record: NoteRecord = {
+      id,
+      userId: input.userId,
+      lessonRecordId: null,
+      content: input.content,
+      isPrivate: input.isPrivate,
+      createdAt: now,
+      updatedAt: now,
     };
+
+    records.push(record);
+    await writeNotes(records);
 
     // 公開メモの場合、顧客にメール通知
     if (!input.isPrivate) {
       sendNotificationEmail(input.userId, input.content).catch(console.error);
     }
 
-    return { success: true, note };
+    return { success: true, note: toInstructorNote(record) };
   } catch (e) {
     console.error("[addInstructorNote]", e);
     return { success: false, error: "指導メモの保存に失敗しました" };
@@ -88,7 +93,9 @@ export async function deleteInstructorNote(
   noteId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await prisma.instructorNote.delete({ where: { id: noteId } });
+    const records = await readNotes();
+    const filtered = records.filter((r) => r.id !== noteId);
+    await writeNotes(filtered);
     return { success: true };
   } catch (e) {
     console.error("[deleteInstructorNote]", e);
