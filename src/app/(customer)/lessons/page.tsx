@@ -207,8 +207,9 @@ export default function LessonsPage() {
               <CreditCard className="size-5 text-stone-500" />
               <h2 className="text-base font-semibold text-stone-800">お支払い方法</h2>
             </div>
+            <p className="text-xs text-stone-500 mb-3">レッスン当日に会場にてお支払いいただきます。</p>
             <div className="flex flex-wrap gap-3">
-              {["現金", "銀行振込", "PayPay"].map((method) => (
+              {["カード決済（Square）", "現金", "PayPay"].map((method) => (
                 <span
                   key={method}
                   className="inline-flex items-center rounded-full bg-stone-100 px-4 py-1.5 text-sm text-stone-700"

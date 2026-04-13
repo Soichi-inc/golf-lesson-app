@@ -126,4 +126,5 @@ export type CustomerDetail = User & {
   instructorNotes: InstructorNote[];
   drills: Drill[];
   roundScores: RoundScore[];
+  userNotes: UserNote[];
 };

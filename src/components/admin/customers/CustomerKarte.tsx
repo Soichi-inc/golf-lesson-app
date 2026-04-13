@@ -5,6 +5,7 @@ import { ReservationHistory } from "./ReservationHistory";
 import { InstructorNoteEditor } from "./InstructorNoteEditor";
 import { DrillList } from "./DrillList";
 import { RoundScoreHistory } from "./RoundScoreHistory";
+import { UserNoteList } from "./UserNoteList";
 import type { CustomerDetail } from "@/types";
 
 type Props = {
@@ -51,6 +52,14 @@ export function CustomerKarte({ customer }: Props) {
             </span>
           )}
         </TabsTrigger>
+        <TabsTrigger value="userNotes" className="text-xs">
+          傾向ノート
+          {customer.userNotes.length > 0 && (
+            <span className="ml-1.5 text-[10px] bg-stone-300 text-stone-700 rounded-full px-1.5">
+              {customer.userNotes.length}
+            </span>
+          )}
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="reservations" className="mt-0">
@@ -70,6 +79,10 @@ export function CustomerKarte({ customer }: Props) {
 
       <TabsContent value="scores" className="mt-0">
         <RoundScoreHistory scores={customer.roundScores} />
+      </TabsContent>
+
+      <TabsContent value="userNotes" className="mt-0">
+        <UserNoteList notes={customer.userNotes} />
       </TabsContent>
     </Tabs>
   );
