@@ -99,7 +99,7 @@ const lessonPlans: (LessonPlan & { details: string[] })[] = [
     details: [
       "25分 ¥3,000（フィードバックあり）",
       "体験レッスン 25分 ¥1,000",
-      "お支払い：現金・銀行振込・PayPay",
+      "お支払い：カード決済（Square）・現金・PayPay",
     ],
   },
 ];
@@ -348,7 +348,7 @@ export default function HomePage() {
             <AnimatedSection>
               <p className="mb-3 text-center text-[10px] font-medium tracking-[0.5em] text-[#b8945f] uppercase">Lesson Plan</p>
               <h2 className="mb-4 text-center text-3xl font-extralight tracking-wider text-stone-800 sm:text-4xl">レッスンプラン</h2>
-              <p className="mb-6 text-center text-sm font-light text-stone-400">お支払い：現金 / 銀行振込 / PayPay</p>
+              <p className="mb-6 text-center text-sm font-light text-stone-400">お支払い：当日会場にて カード決済（Square）/ 現金 / PayPay</p>
               <div className="mx-auto mb-16 h-[1px] w-12 bg-[#b8945f]/40 sm:mb-20" />
             </AnimatedSection>
 

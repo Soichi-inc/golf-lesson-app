@@ -139,6 +139,7 @@ export async function getReservations(): Promise<Reservation[]> {
       concern: r.concern,
       agreedCancelPolicy: r.agreedCancelPolicy,
       agreedPhotoPost: r.agreedPhotoPost,
+      optionSwingVideo: r.optionSwingVideo ?? false,
       cancelledAt: r.cancelledAt ? new Date(r.cancelledAt) : null,
       cancelReason: r.cancelReason,
       createdAt: new Date(r.createdAt),

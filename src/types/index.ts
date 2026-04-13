@@ -62,6 +62,7 @@ export type Reservation = {
   concern: string | null;
   agreedCancelPolicy: boolean;
   agreedPhotoPost: boolean;
+  optionSwingVideo: boolean;
   cancelledAt: Date | null;
   cancelReason: string | null;
   createdAt: Date;
