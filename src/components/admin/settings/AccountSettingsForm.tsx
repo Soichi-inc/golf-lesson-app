@@ -37,8 +37,8 @@ const nameSchema = z.object({
 
 // パスワードフォーム
 const passwordSchema = z.object({
-  newPassword: z.string().min(6, "6文字以上で入力してください"),
-  confirmPassword: z.string().min(6, "6文字以上で入力してください"),
+  newPassword: z.string().min(8, "8文字以上で入力してください"),
+  confirmPassword: z.string().min(8, "8文字以上で入力してください"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "パスワードが一致しません",
   path: ["confirmPassword"],

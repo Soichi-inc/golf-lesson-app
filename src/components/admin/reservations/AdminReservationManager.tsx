@@ -7,6 +7,8 @@ import { ja } from "date-fns/locale";
 import { CheckCircle2, XCircle, Clock, CalendarDays, MapPin, Loader2, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -39,6 +41,7 @@ export function AdminReservationManager({ reservations: initial }: Props) {
   const [actionTarget, setActionTarget] = useState<{ rsv: Reservation; type: ActionType } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState<string>("");
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // アンマウント時に未クリアの setTimeout を必ず解除
@@ -68,11 +71,14 @@ export function AdminReservationManager({ reservations: initial }: Props) {
       type === "complete" ? "COMPLETED" as const :
       "CANCELLED" as const;
 
+    // reject / cancel_approve は理由を付与（顧客にメールで通知される）
+    const trimmedReason = cancelReason.trim() || undefined;
+
     const result =
       type === "approve"  ? await approveReservation(rsv.id)  :
-      type === "reject"   ? await rejectReservation(rsv.id)   :
+      type === "reject"   ? await rejectReservation(rsv.id, trimmedReason)   :
       type === "complete" ? await completeReservation(rsv.id) :
-      await updateReservationStatus(rsv.id, newStatus);
+      await updateReservationStatus(rsv.id, newStatus, trimmedReason);
 
     if (result.success) {
       setReservations((prev) =>
@@ -98,6 +104,7 @@ export function AdminReservationManager({ reservations: initial }: Props) {
 
     setIsProcessing(false);
     setActionTarget(null);
+    setCancelReason("");
   };
 
   const ReservationCard = ({ rsv, actions }: { rsv: Reservation; actions: ActionType[] }) => {
@@ -273,6 +280,31 @@ export function AdminReservationManager({ reservations: initial }: Props) {
               {actionTarget?.type === "complete" && "のレッスンを完了にします。"}
             </DialogDescription>
           </DialogHeader>
+
+          {/* 却下／キャンセル承認時は理由入力欄を表示（顧客にメール通知される） */}
+          {(actionTarget?.type === "reject" ||
+            actionTarget?.type === "cancel_approve") && (
+            <div className="space-y-1.5">
+              <Label htmlFor="cancel-reason" className="text-xs text-stone-600">
+                {actionTarget.type === "reject" ? "却下理由" : "キャンセル理由"}
+                <span className="ml-1.5 text-[10px] text-stone-400">任意・顧客にメールで通知されます</span>
+              </Label>
+              <Textarea
+                id="cancel-reason"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder={
+                  actionTarget.type === "reject"
+                    ? "例：この日時は既に別件が入っているため…"
+                    : "例：体調不良によりキャンセル承認"
+                }
+                rows={3}
+                className="resize-none text-xs"
+                disabled={isProcessing}
+              />
+            </div>
+          )}
+
           <DialogFooter className="flex gap-2 sm:flex-row">
             <Button variant="outline" size="sm" className="flex-1" onClick={() => setActionTarget(null)} disabled={isProcessing}>
               キャンセル

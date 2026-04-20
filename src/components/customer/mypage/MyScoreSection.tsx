@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Flag, Plus, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Flag, Plus, ChevronDown, ChevronUp, Trash2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,6 +45,7 @@ export function MyScoreSection({ scores: initialScores, userId }: Props) {
   );
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
     register,
@@ -64,9 +65,16 @@ export function MyScoreSection({ scores: initialScores, userId }: Props) {
   });
 
   async function onSubmit(raw: ScoreFormRaw) {
+    setErrorMessage(null);
     const score = parseInt(raw.score, 10);
-    if (isNaN(score) || score < 60 || score > 200) return;
-    if (!userId) return;
+    if (isNaN(score) || score < 60 || score > 200) {
+      setErrorMessage("スコアは60〜200の範囲で入力してください");
+      return;
+    }
+    if (!userId) {
+      setErrorMessage("ログイン状態を確認してください");
+      return;
+    }
 
     const toInt = (s: string) => (s.trim() === "" ? null : parseInt(s, 10));
 
@@ -86,18 +94,38 @@ export function MyScoreSection({ scores: initialScores, userId }: Props) {
       );
       reset();
       setShowForm(false);
+    } else {
+      setErrorMessage(result.error || "スコアの保存に失敗しました");
     }
   }
 
   async function handleDelete(id: string) {
+    setErrorMessage(null);
     const result = await deleteScoreAction(id);
     if (result.success) {
       setScores((prev) => prev.filter((s) => s.id !== id));
+    } else {
+      setErrorMessage(result.error || "スコアの削除に失敗しました");
     }
   }
 
   return (
     <div className="space-y-4">
+      {/* エラーメッセージ */}
+      {errorMessage && (
+        <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-xs text-red-600">
+          <AlertCircle className="size-3.5 shrink-0 mt-0.5" />
+          <span className="flex-1">{errorMessage}</span>
+          <button
+            onClick={() => setErrorMessage(null)}
+            className="text-red-400 hover:text-red-600"
+            aria-label="閉じる"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base font-medium text-stone-800">ラウンドスコア</h2>

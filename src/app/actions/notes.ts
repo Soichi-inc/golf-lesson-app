@@ -1,38 +1,15 @@
 "use server";
 
 import type { UserNote } from "@/types";
-import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
 import { requireUser, handleActionError } from "@/lib/auth/guard";
+import {
+  readNoteRecords,
+  writeNoteRecords,
+  toUserNote,
+  type NoteRecord,
+} from "@/lib/data/notes";
 
-const FILE_PATH = "notes.json";
-
-type NoteRecord = {
-  id: string;
-  userId: string;
-  title: string | null;
-  content: string;
-  category: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-async function readNotes(): Promise<NoteRecord[]> {
-  return readJsonFromStorage<NoteRecord[]>(FILE_PATH, []);
-}
-
-async function writeNotes(records: NoteRecord[]): Promise<void> {
-  await writeJsonToStorage(FILE_PATH, records);
-}
-
-function toUserNote(r: NoteRecord): UserNote {
-  return {
-    ...r,
-    createdAt: new Date(r.createdAt),
-    updatedAt: new Date(r.updatedAt),
-  };
-}
-
-/** ノートを追加（所有者本人のみ。userIdは常にログインユーザーにforce） */
+/** ノートを追加（所有者本人のみ） */
 export async function addNote(input: {
   title?: string;
   content: string;
@@ -40,7 +17,7 @@ export async function addNote(input: {
 }): Promise<{ success: boolean; note?: UserNote; error?: string }> {
   try {
     const user = await requireUser();
-    const records = await readNotes();
+    const records = await readNoteRecords();
     const id = `unote-${Date.now()}`;
     const now = new Date().toISOString();
 
@@ -55,7 +32,7 @@ export async function addNote(input: {
     };
 
     records.push(record);
-    await writeNotes(records);
+    await writeNoteRecords(records);
     return { success: true, note: toUserNote(record) };
   } catch (e) {
     return handleActionError(e, "ノートの保存に失敗しました");
@@ -68,13 +45,7 @@ export async function getNotesByUserId(userId: string): Promise<UserNote[]> {
   if (user.role !== "ADMIN" && user.id !== userId) {
     throw new Error("他のユーザーのノートは閲覧できません");
   }
-  const records = await readNotes();
-  return records.filter((r) => r.userId === userId).map(toUserNote);
-}
-
-/** 内部用: authなし */
-export async function _getNotesByUserIdInternal(userId: string): Promise<UserNote[]> {
-  const records = await readNotes();
+  const records = await readNoteRecords();
   return records.filter((r) => r.userId === userId).map(toUserNote);
 }
 
@@ -84,7 +55,7 @@ export async function deleteNote(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requireUser();
-    const records = await readNotes();
+    const records = await readNoteRecords();
     const target = records.find((r) => r.id === noteId);
     if (!target) return { success: false, error: "ノートが見つかりません" };
 
@@ -93,7 +64,7 @@ export async function deleteNote(
     }
 
     const filtered = records.filter((r) => r.id !== noteId);
-    await writeNotes(filtered);
+    await writeNoteRecords(filtered);
     return { success: true };
   } catch (e) {
     return handleActionError(e, "ノートの削除に失敗しました");

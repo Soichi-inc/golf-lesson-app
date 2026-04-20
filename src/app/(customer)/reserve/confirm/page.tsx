@@ -24,7 +24,7 @@ export default async function ReserveConfirmPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect("/auth/login?redirect=/reserve/confirm");
+  if (!user) redirect("/auth/login?next=/reserve/confirm");
 
   const reservations = await getReservationsByUserId(user.id);
 

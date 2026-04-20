@@ -1,54 +1,23 @@
 "use server";
 
 import type { InstructorNote } from "@/types";
-import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMail } from "@/lib/email/send";
 import { instructorNoteEmail } from "@/lib/email/templates";
 import { requireAdmin, requireUser, handleActionError } from "@/lib/auth/guard";
-
-const FILE_PATH = "instructor-notes.json";
-
-type NoteRecord = {
-  id: string;
-  userId: string;
-  lessonRecordId: string | null;
-  content: string;
-  isPrivate: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-async function readNotes(): Promise<NoteRecord[]> {
-  return readJsonFromStorage<NoteRecord[]>(FILE_PATH, []);
-}
-
-async function writeNotes(records: NoteRecord[]): Promise<void> {
-  await writeJsonToStorage(FILE_PATH, records);
-}
-
-function toInstructorNote(r: NoteRecord): InstructorNote {
-  return {
-    ...r,
-    createdAt: new Date(r.createdAt),
-    updatedAt: new Date(r.updatedAt),
-  };
-}
+import {
+  readInstructorNoteRecords,
+  writeInstructorNoteRecords,
+  toInstructorNote,
+  type InstructorNoteRecord,
+} from "@/lib/data/instructorNotes";
 
 /** 管理者用: ユーザーの全指導メモを取得（ADMIN専用） */
 export async function getInstructorNotesByUserId(
   userId: string
 ): Promise<InstructorNote[]> {
   await requireAdmin();
-  const records = await readNotes();
-  return records.filter((r) => r.userId === userId).map(toInstructorNote);
-}
-
-/** 内部用: authなしで全メモ取得 */
-export async function _getInstructorNotesByUserIdInternal(
-  userId: string
-): Promise<InstructorNote[]> {
-  const records = await readNotes();
+  const records = await readInstructorNoteRecords();
   return records.filter((r) => r.userId === userId).map(toInstructorNote);
 }
 
@@ -60,7 +29,7 @@ export async function getPublicInstructorNotesByUserId(
   if (user.role !== "ADMIN" && user.id !== userId) {
     throw new Error("他のユーザーのメモは閲覧できません");
   }
-  const records = await readNotes();
+  const records = await readInstructorNoteRecords();
   return records
     .filter((r) => r.userId === userId && !r.isPrivate)
     .map(toInstructorNote);
@@ -74,11 +43,11 @@ export async function addInstructorNote(input: {
 }): Promise<{ success: boolean; note?: InstructorNote; error?: string }> {
   try {
     await requireAdmin();
-    const records = await readNotes();
+    const records = await readInstructorNoteRecords();
     const id = `inote-${Date.now()}`;
     const now = new Date().toISOString();
 
-    const record: NoteRecord = {
+    const record: InstructorNoteRecord = {
       id,
       userId: input.userId,
       lessonRecordId: null,
@@ -89,7 +58,7 @@ export async function addInstructorNote(input: {
     };
 
     records.push(record);
-    await writeNotes(records);
+    await writeInstructorNoteRecords(records);
 
     // 公開メモの場合、顧客にメール通知
     if (!input.isPrivate) {
@@ -108,9 +77,9 @@ export async function deleteInstructorNote(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await requireAdmin();
-    const records = await readNotes();
+    const records = await readInstructorNoteRecords();
     const filtered = records.filter((r) => r.id !== noteId);
-    await writeNotes(filtered);
+    await writeInstructorNoteRecords(filtered);
     return { success: true };
   } catch (e) {
     return handleActionError(e, "指導メモの削除に失敗しました");

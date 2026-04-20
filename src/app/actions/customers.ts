@@ -1,26 +1,41 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { _getReservationsByUserIdInternal, _getAllReservationsInternal } from "@/app/actions/reservations";
-import { _getDrillsByUserIdInternal } from "@/app/actions/drills";
-import { _getInstructorNotesByUserIdInternal } from "@/app/actions/instructorNotes";
-import { _getScoresByUserIdInternal } from "@/app/actions/scores";
-import { _getNotesByUserIdInternal } from "@/app/actions/notes";
+import { getAllReservations, getReservationsByUserId } from "@/lib/data/reservations";
+import { getDrillsByUserId } from "@/lib/data/drills";
+import { getInstructorNotesByUserId } from "@/lib/data/instructorNotes";
+import { getScoresByUserId } from "@/lib/data/scores";
+import { getNotesByUserId } from "@/lib/data/notes";
 import { requireAdmin } from "@/lib/auth/guard";
 import type { User, CustomerDetail } from "@/types";
 
-/** Supabase Authから全USER（非ADMIN）を取得（ADMIN専用） */
+/**
+ * Supabase Authから全USER（非ADMIN）を取得（ADMIN専用）
+ * ※ listUsersは標準ページサイズが50件。ユーザー数が50を超える場合はpage引数で
+ * ページング取得する必要がある。
+ */
 export async function getCustomers(): Promise<User[]> {
   await requireAdmin();
   const admin = createAdminClient();
-  const { data: { users }, error } = await admin.auth.admin.listUsers();
 
-  if (error) {
-    console.error("[getCustomers] error:", error);
-    return [];
+  const all: Awaited<ReturnType<typeof admin.auth.admin.listUsers>>["data"]["users"] = [];
+  let page = 1;
+  const perPage = 1000;
+
+  // 念のため最大10ページまでページング（1万人まで対応）
+  for (let i = 0; i < 10; i++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) {
+      console.error("[getCustomers] error:", error);
+      break;
+    }
+    if (!data.users.length) break;
+    all.push(...data.users);
+    if (data.users.length < perPage) break;
+    page++;
   }
 
-  return users
+  return all
     .filter((u) => u.user_metadata?.role !== "ADMIN" && u.app_metadata?.role !== "ADMIN")
     .map((u) => ({
       id: u.id,
@@ -37,7 +52,7 @@ export async function getCustomers(): Promise<User[]> {
 /** 顧客ごとの予約件数（全ステータス）を集計（ADMIN専用） */
 export async function getReservationCounts(): Promise<Record<string, number>> {
   await requireAdmin();
-  const reservations = await _getAllReservationsInternal();
+  const reservations = await getAllReservations();
   return reservations.reduce<Record<string, number>>((acc, r) => {
     acc[r.userId] = (acc[r.userId] ?? 0) + 1;
     return acc;
@@ -59,11 +74,11 @@ export async function getCustomerDetail(userId: string): Promise<CustomerDetail 
   if (user.user_metadata?.role === "ADMIN" || user.app_metadata?.role === "ADMIN") return null;
 
   const [reservations, drills, instructorNotes, roundScores, userNotes] = await Promise.all([
-    _getReservationsByUserIdInternal(userId),
-    _getDrillsByUserIdInternal(userId),
-    _getInstructorNotesByUserIdInternal(userId),
-    _getScoresByUserIdInternal(userId),
-    _getNotesByUserIdInternal(userId),
+    getReservationsByUserId(userId),
+    getDrillsByUserId(userId),
+    getInstructorNotesByUserId(userId),
+    getScoresByUserId(userId),
+    getNotesByUserId(userId),
   ]);
 
   return {

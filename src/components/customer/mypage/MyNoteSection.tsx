@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { BookOpen, Plus, Trash2, Tag } from "lucide-react";
+import { BookOpen, Plus, Trash2, Tag, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,6 +49,7 @@ export function MyNoteSection({ notes: initialNotes, userId }: Props) {
   );
   const [showForm, setShowForm] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const form = useForm<NoteFormValues>({
     resolver: zodResolver(noteSchema),
@@ -59,6 +60,7 @@ export function MyNoteSection({ notes: initialNotes, userId }: Props) {
 
   async function onSubmit(values: NoteFormValues) {
     if (!userId) return;
+    setErrorMessage(null);
 
     const result = await addNoteAction({
       title: values.title,
@@ -70,13 +72,18 @@ export function MyNoteSection({ notes: initialNotes, userId }: Props) {
       setNotes((prev) => [hydrateNote(result.note!), ...prev]);
       form.reset();
       setShowForm(false);
+    } else {
+      setErrorMessage(result.error || "ノートの保存に失敗しました");
     }
   }
 
   async function handleDelete(id: string) {
+    setErrorMessage(null);
     const result = await deleteNoteAction(id);
     if (result.success) {
       setNotes((prev) => prev.filter((n) => n.id !== id));
+    } else {
+      setErrorMessage(result.error || "ノートの削除に失敗しました");
     }
   }
 
@@ -87,6 +94,21 @@ export function MyNoteSection({ notes: initialNotes, userId }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* エラーメッセージ */}
+      {errorMessage && (
+        <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-xs text-red-600">
+          <AlertCircle className="size-3.5 shrink-0 mt-0.5" />
+          <span className="flex-1">{errorMessage}</span>
+          <button
+            onClick={() => setErrorMessage(null)}
+            className="text-red-400 hover:text-red-600"
+            aria-label="閉じる"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>

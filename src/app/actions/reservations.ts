@@ -2,8 +2,7 @@
 
 import { differenceInCalendarDays } from "date-fns";
 import type { Reservation, ReservationStatus } from "@/types";
-import { getSchedules, getScheduleById } from "@/app/actions/schedules";
-import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
+import { getScheduleById } from "@/app/actions/schedules";
 import { sendMail, notifyAdmin } from "@/lib/email/send";
 import {
   reservationConfirmedEmail,
@@ -12,174 +11,21 @@ import {
   adminReservationRejectedEmail,
 } from "@/lib/email/templates";
 import { requireAdmin, requireUser, handleActionError } from "@/lib/auth/guard";
+import {
+  readReservationRecords,
+  getAllReservations as _getAllReservations,
+  updateReservationStatusRecord,
+} from "@/lib/data/reservations";
 
 // ---------------------------------------------------------------------------
-// Supabase Storage based reservation storage (MVP)
+// 公開サーバーアクション
+// ※ 内部用ヘルパーは全て `@/lib/data/reservations` に移動しクライアントに公開しない
 // ---------------------------------------------------------------------------
-
-const FILE_PATH = "reservations.json";
-
-/** JSON内の保存形式（Dateはstring） */
-type ReservationRecord = {
-  id: string;
-  userId: string;
-  userName: string | null;
-  userEmail: string;
-  scheduleId: string;
-  status: ReservationStatus;
-  concern: string | null;
-  agreedCancelPolicy: boolean;
-  agreedPhotoPost: boolean;
-  optionSwingVideo: boolean;
-  cancelledAt: string | null;
-  cancelReason: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-/** 予約一覧を読み込み */
-async function readReservations(): Promise<ReservationRecord[]> {
-  return readJsonFromStorage<ReservationRecord[]>(FILE_PATH, []);
-}
-
-/** 予約一覧を保存 */
-async function writeReservations(records: ReservationRecord[]): Promise<void> {
-  await writeJsonToStorage(FILE_PATH, records);
-}
-
-/** 予約を追加 */
-export async function addReservation(input: {
-  userId: string;
-  userName: string | null;
-  userEmail: string;
-  scheduleId: string;
-  concern?: string;
-  agreedCancelPolicy: boolean;
-  agreedPhotoPost: boolean;
-  optionSwingVideo?: boolean;
-}): Promise<{ success: boolean; reservationId?: string; error?: string }> {
-  try {
-    const records = await readReservations();
-    const id = `rsv-${Date.now()}`;
-    const now = new Date().toISOString();
-
-    records.push({
-      id,
-      userId: input.userId,
-      userName: input.userName,
-      userEmail: input.userEmail,
-      scheduleId: input.scheduleId,
-      status: "PENDING",
-      concern: input.concern || null,
-      agreedCancelPolicy: input.agreedCancelPolicy,
-      agreedPhotoPost: input.agreedPhotoPost,
-      optionSwingVideo: input.optionSwingVideo ?? false,
-      cancelledAt: null,
-      cancelReason: null,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    await writeReservations(records);
-    return { success: true, reservationId: id };
-  } catch (e) {
-    console.error("[addReservation]", e);
-    return { success: false, error: "予約の保存に失敗しました" };
-  }
-}
-
-/** 全予約を取得（内部ヘルパー - auth不要） */
-async function _getAllReservations(): Promise<Reservation[]> {
-  const [records, allSchedules] = await Promise.all([
-    readReservations(),
-    getSchedules(),
-  ]);
-
-  return records.map((r) => {
-    const schedule = allSchedules.find((s) => s.id === r.scheduleId);
-    return {
-      id: r.id,
-      userId: r.userId,
-      user: {
-        id: r.userId,
-        email: r.userEmail,
-        name: r.userName,
-        phone: null,
-        role: "USER" as const,
-        avatarUrl: null,
-        createdAt: new Date(r.createdAt),
-        updatedAt: new Date(r.updatedAt),
-      },
-      scheduleId: r.scheduleId,
-      schedule: schedule ?? {
-        id: r.scheduleId,
-        lessonPlanId: "",
-        lessonPlan: {
-          id: "",
-          name: "（不明なプラン）",
-          category: "REGULAR" as const,
-          description: null,
-          price: 0,
-          duration: 0,
-          maxAttendees: 1,
-          isPublished: false,
-          displayOrder: 0,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        startAt: new Date(r.createdAt),
-        endAt: new Date(r.createdAt),
-        location: null,
-        maxAttendees: 1,
-        isAvailable: false,
-        note: null,
-        teeOffTime: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      status: r.status,
-      concern: r.concern,
-      agreedCancelPolicy: r.agreedCancelPolicy,
-      agreedPhotoPost: r.agreedPhotoPost,
-      optionSwingVideo: r.optionSwingVideo ?? false,
-      cancelledAt: r.cancelledAt ? new Date(r.cancelledAt) : null,
-      cancelReason: r.cancelReason,
-      createdAt: new Date(r.createdAt),
-      updatedAt: new Date(r.updatedAt),
-    };
-  });
-}
 
 /** 全予約を取得（admin専用） */
 export async function getReservations(): Promise<Reservation[]> {
   await requireAdmin();
   return _getAllReservations();
-}
-
-/** 予約ステータスを更新（内部ヘルパー - auth不要） */
-async function _updateReservationStatus(
-  reservationId: string,
-  newStatus: ReservationStatus,
-  cancelReason?: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const records = await readReservations();
-    const idx = records.findIndex((r) => r.id === reservationId);
-    if (idx === -1) return { success: false, error: "予約が見つかりません" };
-
-    records[idx].status = newStatus;
-    records[idx].updatedAt = new Date().toISOString();
-    if (newStatus === "CANCELLED") {
-      records[idx].cancelledAt = new Date().toISOString();
-      records[idx].cancelReason = cancelReason || null;
-    }
-
-    await writeReservations(records);
-    return { success: true };
-  } catch (e) {
-    console.error("[updateReservationStatus]", e);
-    return { success: false, error: "ステータス更新に失敗しました" };
-  }
 }
 
 /** 予約ステータスを更新（ADMIN専用） */
@@ -190,7 +36,7 @@ export async function updateReservationStatus(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await requireAdmin();
-    return _updateReservationStatus(reservationId, newStatus, cancelReason);
+    return updateReservationStatusRecord(reservationId, newStatus, cancelReason);
   } catch (e) {
     return handleActionError(e, "ステータス更新に失敗しました");
   }
@@ -206,16 +52,14 @@ export async function cancelReservationByCustomer(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requireUser();
-    const records = await readReservations();
+    const records = await readReservationRecords();
     const record = records.find((r) => r.id === reservationId);
     if (!record) return { success: false, error: "予約が見つかりません" };
 
-    // 所有者チェック
     if (record.userId !== user.id) {
       return { success: false, error: "他のユーザーの予約はキャンセルできません" };
     }
 
-    // 既にキャンセル済み / 完了済み
     if (record.status === "CANCELLED") {
       return { success: false, error: "既にキャンセル済みです" };
     }
@@ -223,7 +67,6 @@ export async function cancelReservationByCustomer(
       return { success: false, error: "完了済みの予約はキャンセルできません" };
     }
 
-    // スケジュール取得 + 7日前以上か判定
     const schedule = await getScheduleById(record.scheduleId);
     if (!schedule) return { success: false, error: "スケジュールが見つかりません" };
 
@@ -240,14 +83,11 @@ export async function cancelReservationByCustomer(
       };
     }
 
-    const result = await _updateReservationStatus(
+    return updateReservationStatusRecord(
       reservationId,
       "CANCELLED",
       "顧客によるキャンセル（7日前・無料）"
     );
-    if (!result.success) return result;
-
-    return { success: true };
   } catch (e) {
     return handleActionError(e, "キャンセルに失敗しました");
   }
@@ -264,30 +104,11 @@ export async function getReservationsByUserId(userId: string): Promise<Reservati
 }
 
 /**
- * 内部用: authなしで特定ユーザーの予約を取得
- * ⚠️ customers.ts の getCustomerDetail（ADMIN認証済み）からのみ呼び出すこと。
- * 一般ユーザーからの呼び出しは、getReservationsByUserId（所有者チェック付き）を使う。
- */
-export async function _getReservationsByUserIdInternal(userId: string): Promise<Reservation[]> {
-  const all = await _getAllReservations();
-  return all.filter((r) => r.userId === userId);
-}
-
-/**
- * 内部用: authなしで全予約を取得
- * ⚠️ 予約フォームの定員チェック（submitReservation内）からのみ使用。
- * 個人情報を含むReservationを返すため、一般クライアントには公開しないこと。
- */
-export async function _getAllReservationsInternal(): Promise<Reservation[]> {
-  return _getAllReservations();
-}
-
-/**
  * スケジュールID毎の有効な予約数を取得（認証不要・PII を含まない安全な集計）
  * CANCELLED以外を「埋まっている」扱い。スケジュール画面での満枠判定に使用。
  */
 export async function getBookedCountsByScheduleId(): Promise<Record<string, number>> {
-  const records = await readReservations();
+  const records = await readReservationRecords();
   return records.reduce<Record<string, number>>((acc, r) => {
     if (r.status !== "CANCELLED") {
       acc[r.scheduleId] = (acc[r.scheduleId] ?? 0) + 1;
@@ -302,27 +123,26 @@ export async function approveReservation(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await requireAdmin();
-    const records = await readReservations();
+    const records = await readReservationRecords();
     const record = records.find((r) => r.id === reservationId);
     if (!record) return { success: false, error: "予約が見つかりません" };
 
-    // ステータス更新
-    const result = await _updateReservationStatus(reservationId, "CONFIRMED");
+    const result = await updateReservationStatusRecord(reservationId, "CONFIRMED");
     if (!result.success) return result;
 
-    // スケジュール取得
     const schedule = await getScheduleById(record.scheduleId);
-    if (!schedule) return { success: true }; // ステータス更新は成功、メールはスキップ
+    if (!schedule) {
+      console.warn("[approveReservation] schedule not found, email skipped");
+      return { success: true };
+    }
 
     const userName = record.userName || record.userEmail || "お客様";
 
-    // 顧客にメール送信
     if (record.userEmail) {
       const { subject, html } = reservationConfirmedEmail(schedule);
       await sendMail({ to: record.userEmail, subject, html }).catch(console.error);
     }
 
-    // 管理者にメール通知
     const adminTemplate = adminReservationApprovedEmail(schedule, userName, record.userEmail);
     await notifyAdmin(adminTemplate).catch(console.error);
 
@@ -339,27 +159,23 @@ export async function rejectReservation(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await requireAdmin();
-    const records = await readReservations();
+    const records = await readReservationRecords();
     const record = records.find((r) => r.id === reservationId);
     if (!record) return { success: false, error: "予約が見つかりません" };
 
-    // ステータス更新
-    const result = await _updateReservationStatus(reservationId, "CANCELLED", cancelReason);
+    const result = await updateReservationStatusRecord(reservationId, "CANCELLED", cancelReason);
     if (!result.success) return result;
 
-    // スケジュール取得
     const schedule = await getScheduleById(record.scheduleId);
     if (!schedule) return { success: true };
 
     const userName = record.userName || record.userEmail || "お客様";
 
-    // 顧客にメール送信
     if (record.userEmail) {
       const { subject, html } = reservationRejectedEmail(schedule, cancelReason);
       await sendMail({ to: record.userEmail, subject, html }).catch(console.error);
     }
 
-    // 管理者にメール通知
     const adminTemplate = adminReservationRejectedEmail(schedule, userName, record.userEmail);
     await notifyAdmin(adminTemplate).catch(console.error);
 
@@ -375,7 +191,7 @@ export async function completeReservation(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await requireAdmin();
-    return _updateReservationStatus(reservationId, "COMPLETED");
+    return updateReservationStatusRecord(reservationId, "COMPLETED");
   } catch (e) {
     return handleActionError(e, "完了処理に失敗しました");
   }

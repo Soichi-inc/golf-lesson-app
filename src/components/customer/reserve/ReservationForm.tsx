@@ -97,7 +97,7 @@ export function ReservationForm({ schedule: rawSchedule }: Props) {
       if (!result.success) {
         // ログイン必要エラーの場合はログインページへ
         if (result.error === "ログインが必要です") {
-          router.push("/login?redirect=/reserve/" + schedule.id);
+          router.push(`/auth/login?next=/reserve/${schedule.id}`);
           return;
         }
         form.setError("root", { message: result.error || "予約に失敗しました" });
