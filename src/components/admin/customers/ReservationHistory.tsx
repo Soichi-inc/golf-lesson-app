@@ -14,11 +14,11 @@ const STATUS_MAP: Record<
     className: "bg-yellow-50 text-yellow-700 border-yellow-200",
   },
   CONFIRMED: {
-    label: "確定",
+    label: "予約確定",
     className: "bg-blue-50 text-blue-700 border-blue-200",
   },
   COMPLETED: {
-    label: "完了",
+    label: "レッスン実施済",
     className: "bg-emerald-50 text-emerald-700 border-emerald-200",
   },
   CANCELLED: {

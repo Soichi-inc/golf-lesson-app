@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 const STATUS_MAP = {
   PENDING:   { label: "承認待ち",   icon: Hourglass,    className: "bg-yellow-50 text-yellow-700 border-yellow-200", desc: "講師が予約を確認中です。確定までしばらくお待ちください。" },
   CONFIRMED: { label: "予約確定",   icon: CheckCircle2, className: "bg-emerald-50 text-emerald-700 border-emerald-200", desc: "予約が確定しました。当日お会いできるのを楽しみにしています！" },
-  COMPLETED: { label: "レッスン完了", icon: CheckCircle2, className: "bg-blue-50 text-blue-700 border-blue-200", desc: "レッスンが完了しました。ありがとうございました。" },
+  COMPLETED: { label: "レッスン実施済", icon: CheckCircle2, className: "bg-blue-50 text-blue-700 border-blue-200", desc: "レッスンが実施済みです。ありがとうございました。" },
   CANCELLED: { label: "キャンセル済", icon: XCircle,      className: "bg-stone-100 text-stone-500 border-stone-200", desc: "この予約はキャンセルされました。" },
 } as const;
 
