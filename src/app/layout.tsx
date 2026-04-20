@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -46,10 +47,10 @@ export const metadata: Metadata = {
       "LPGA会員・TPI認定インストラクター奥村真由美プロによる個人ゴルフレッスン。横浜・東京を拠点に、身体の特性に合ったスイング作りをサポートします。",
     images: [
       {
-        url: "/mayumi.jpg",
+        url: "/og",
         width: 1200,
         height: 630,
-        alt: "奥村真由美プロ",
+        alt: "奥村真由美ゴルフレッスン",
       },
     ],
   },
@@ -58,7 +59,7 @@ export const metadata: Metadata = {
     title: "奥村真由美ゴルフレッスン",
     description:
       "LPGA会員・TPI認定インストラクターによる個人ゴルフレッスン。横浜・東京を拠点に、身体の特性に合ったスイング作りをサポートします。",
-    images: ["/mayumi.jpg"],
+    images: ["/og"],
   },
   robots: {
     index: true,
@@ -76,6 +77,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <GoogleAnalytics />
         {children}
       </body>
     </html>

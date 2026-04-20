@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, Flag, BookOpen, ChevronRight, Dumbbell, MessageSquare } from "lucide-react";
+import { CalendarDays, Flag, BookOpen, ChevronRight, Dumbbell, MessageSquare, UserCog } from "lucide-react";
 
 export const metadata: Metadata = { title: "マイページ" };
 
@@ -35,6 +35,12 @@ export default function MyPage() {
       icon: MessageSquare,
       label: "講師からのメモ",
       description: "プロからの指導メモ・アドバイス",
+    },
+    {
+      href: "/mypage/account",
+      icon: UserCog,
+      label: "アカウント設定",
+      description: "プロフィール・パスワードの変更",
     },
   ];
 
