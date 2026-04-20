@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CalendarDays, MapPin, Clock, ChevronLeft, ChevronRight, AlertCircle, Loader2, Video, CreditCard } from "lucide-react";
+import { CalendarDays, MapPin, Clock, ChevronLeft, ChevronRight, AlertCircle, Loader2, Video, CreditCard, Users, User as UserIcon } from "lucide-react";
 import { submitReservation } from "@/app/actions/reserve";
 import {
   Form,
@@ -21,6 +21,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import type { Schedule } from "@/types";
+import {
+  calcRoundPrice,
+  PRIVATE_PRICE_PER_PERSON,
+  SHARED_PRICE_PER_PERSON,
+} from "@/lib/round-pricing";
 
 const OPTION_SWING_VIDEO_PRICE = 3000;
 
@@ -31,6 +36,9 @@ const formSchema = z.object({
   }),
   agreedPhotoPost: z.boolean(),
   optionSwingVideo: z.boolean(),
+  // ラウンドレッスン用
+  roundBookingType: z.enum(["private", "shared"]).optional(),
+  roundParticipantCount: z.coerce.number().int().min(1).max(3).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -69,6 +77,7 @@ function hydrateSchedule(s: Schedule): Schedule {
 export function ReservationForm({ schedule: rawSchedule }: Props) {
   const schedule = hydrateSchedule(rawSchedule);
   const router = useRouter();
+  const isRound = schedule.lessonPlan.category === "ROUND";
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -77,12 +86,26 @@ export function ReservationForm({ schedule: rawSchedule }: Props) {
       agreedCancelPolicy: undefined,
       agreedPhotoPost: false,
       optionSwingVideo: false,
+      // ラウンドレッスンの初期値：貸切/1名
+      roundBookingType: isRound ? "private" : undefined,
+      roundParticipantCount: isRound ? 1 : undefined,
     },
   });
 
   const { isSubmitting } = form.formState;
   const watchSwingVideo = form.watch("optionSwingVideo");
-  const totalPrice = schedule.lessonPlan.price + (watchSwingVideo ? OPTION_SWING_VIDEO_PRICE : 0);
+  const watchBookingType = form.watch("roundBookingType");
+  const watchParticipantCount = form.watch("roundParticipantCount");
+
+  // レッスン料金の計算
+  const lessonPrice = isRound
+    ? calcRoundPrice(
+        watchBookingType ?? "private",
+        Number(watchParticipantCount ?? 1)
+      )
+    : schedule.lessonPlan.price;
+
+  const totalPrice = lessonPrice + (watchSwingVideo ? OPTION_SWING_VIDEO_PRICE : 0);
 
   async function onSubmit(values: FormValues) {
     try {
@@ -92,6 +115,8 @@ export function ReservationForm({ schedule: rawSchedule }: Props) {
         agreedCancelPolicy: values.agreedCancelPolicy,
         agreedPhotoPost: values.agreedPhotoPost,
         optionSwingVideo: values.optionSwingVideo,
+        roundBookingType: isRound ? values.roundBookingType : undefined,
+        roundParticipantCount: isRound ? Number(values.roundParticipantCount) : undefined,
       });
 
       if (!result.success) {
@@ -161,9 +186,15 @@ export function ReservationForm({ schedule: rawSchedule }: Props) {
           <div className="text-right shrink-0">
             <p className="text-lg font-light">¥{totalPrice.toLocaleString()}</p>
             <p className="text-[11px] text-stone-400">税込</p>
-            {watchSwingVideo && (
-              <p className="text-[10px] text-stone-400 mt-1">
-                レッスン ¥{schedule.lessonPlan.price.toLocaleString()} + 撮影 ¥{OPTION_SWING_VIDEO_PRICE.toLocaleString()}
+            {(watchSwingVideo || isRound) && (
+              <p className="text-[10px] text-stone-400 mt-1 leading-relaxed">
+                レッスン ¥{lessonPrice.toLocaleString()}
+                {watchSwingVideo && ` + 撮影 ¥${OPTION_SWING_VIDEO_PRICE.toLocaleString()}`}
+              </p>
+            )}
+            {isRound && (
+              <p className="text-[10px] text-amber-300 mt-1">
+                ※別途プレー費あり
               </p>
             )}
           </div>
@@ -174,6 +205,112 @@ export function ReservationForm({ schedule: rawSchedule }: Props) {
       <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-stone-100">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-7">
+
+            {/* ラウンドレッスン専用: 予約タイプ選択 */}
+            {isRound && (
+              <FormField
+                control={form.control}
+                name="roundBookingType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium text-stone-700">
+                      予約タイプ
+                      <span className="ml-2 text-[11px] font-medium text-red-500">必須</span>
+                    </FormLabel>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {/* 貸切 */}
+                      <button
+                        type="button"
+                        onClick={() => field.onChange("private")}
+                        className={`rounded-xl border p-4 text-left transition-colors ${
+                          field.value === "private"
+                            ? "border-amber-500 bg-amber-50"
+                            : "border-stone-200 hover:bg-stone-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <UserIcon className="size-3.5 text-stone-600" />
+                          <span className="text-sm font-medium text-stone-800">貸切予約</span>
+                        </div>
+                        <p className="text-[11px] text-stone-500 leading-relaxed">
+                          1〜3名で枠を貸切。同伴者を連れての予約も可能です。
+                        </p>
+                      </button>
+
+                      {/* 組み合わせ */}
+                      <button
+                        type="button"
+                        onClick={() => field.onChange("shared")}
+                        className={`rounded-xl border p-4 text-left transition-colors ${
+                          field.value === "shared"
+                            ? "border-amber-500 bg-amber-50"
+                            : "border-stone-200 hover:bg-stone-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Users className="size-3.5 text-stone-600" />
+                          <span className="text-sm font-medium text-stone-800">組み合わせ予約</span>
+                        </div>
+                        <p className="text-[11px] text-stone-500 leading-relaxed">
+                          他のお客様と相席。2名以上集まったら開催します。
+                        </p>
+                        <p className="text-[11px] text-stone-700 font-medium mt-1">
+                          ¥{SHARED_PRICE_PER_PERSON.toLocaleString()} / 人
+                        </p>
+                      </button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {/* ラウンドレッスン専用: 参加人数（貸切時のみ） */}
+            {isRound && watchBookingType === "private" && (
+              <FormField
+                control={form.control}
+                name="roundParticipantCount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium text-stone-700">
+                      参加人数
+                      <span className="ml-2 text-[11px] font-medium text-red-500">必須</span>
+                    </FormLabel>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[1, 2, 3].map((n) => {
+                        const perPerson = PRIVATE_PRICE_PER_PERSON[n as 1 | 2 | 3];
+                        const total = perPerson * n;
+                        const selected = Number(field.value) === n;
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => field.onChange(n)}
+                            className={`rounded-xl border p-3 text-center transition-colors ${
+                              selected
+                                ? "border-amber-500 bg-amber-50"
+                                : "border-stone-200 hover:bg-stone-50"
+                            }`}
+                          >
+                            <p className="text-sm font-semibold text-stone-800">{n}名</p>
+                            <p className="text-[10px] text-stone-500 mt-0.5">
+                              ¥{perPerson.toLocaleString()}/人
+                            </p>
+                            <p className="text-[11px] font-medium text-stone-700 mt-1">
+                              計 ¥{total.toLocaleString()}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[11px] text-stone-400 mt-1.5">
+                      ※同伴者の方の情報はレッスン当日にご確認させていただきます。
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* お悩み・質問 */}
             <FormField

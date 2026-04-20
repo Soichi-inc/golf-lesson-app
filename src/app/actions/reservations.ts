@@ -104,14 +104,19 @@ export async function getReservationsByUserId(userId: string): Promise<Reservati
 }
 
 /**
- * スケジュールID毎の有効な予約数を取得（認証不要・PII を含まない安全な集計）
+ * スケジュールID毎の有効な予約席数を取得（認証不要・PII を含まない安全な集計）
  * CANCELLED以外を「埋まっている」扱い。スケジュール画面での満枠判定に使用。
+ * 貸切予約は roundParticipantCount 分の席を消費。
  */
 export async function getBookedCountsByScheduleId(): Promise<Record<string, number>> {
   const records = await readReservationRecords();
   return records.reduce<Record<string, number>>((acc, r) => {
     if (r.status !== "CANCELLED") {
-      acc[r.scheduleId] = (acc[r.scheduleId] ?? 0) + 1;
+      const seats =
+        r.roundBookingType === "private" && r.roundParticipantCount
+          ? r.roundParticipantCount
+          : 1;
+      acc[r.scheduleId] = (acc[r.scheduleId] ?? 0) + seats;
     }
     return acc;
   }, {});

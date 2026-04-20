@@ -10,7 +10,7 @@
  * - PII を返すため、クライアントに公開する関数ではない
  */
 import "server-only";
-import type { Reservation, ReservationStatus } from "@/types";
+import type { Reservation, ReservationStatus, RoundBookingType } from "@/types";
 import { getSchedules } from "@/app/actions/schedules";
 import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
 
@@ -27,6 +27,11 @@ export type ReservationRecord = {
   agreedCancelPolicy: boolean;
   agreedPhotoPost: boolean;
   optionSwingVideo: boolean;
+  /** ラウンドレッスン用（他カテゴリではnull） */
+  roundBookingType: RoundBookingType | null;
+  roundParticipantCount: number | null;
+  /** 予約時に確定した合計料金 */
+  totalPrice: number | null;
   cancelledAt: string | null;
   cancelReason: string | null;
   createdAt: string;
@@ -97,6 +102,9 @@ export async function getAllReservations(): Promise<Reservation[]> {
       agreedCancelPolicy: r.agreedCancelPolicy,
       agreedPhotoPost: r.agreedPhotoPost,
       optionSwingVideo: r.optionSwingVideo ?? false,
+      roundBookingType: r.roundBookingType ?? null,
+      roundParticipantCount: r.roundParticipantCount ?? null,
+      totalPrice: r.totalPrice ?? (schedule?.lessonPlan.price ?? 0),
       cancelledAt: r.cancelledAt ? new Date(r.cancelledAt) : null,
       cancelReason: r.cancelReason,
       createdAt: new Date(r.createdAt),
@@ -144,6 +152,9 @@ export async function insertReservationRecord(input: {
   agreedCancelPolicy: boolean;
   agreedPhotoPost: boolean;
   optionSwingVideo?: boolean;
+  roundBookingType?: RoundBookingType | null;
+  roundParticipantCount?: number | null;
+  totalPrice: number;
 }): Promise<{ success: boolean; reservationId?: string; error?: string }> {
   const records = await readReservationRecords();
   const id = `rsv-${Date.now()}`;
@@ -160,6 +171,9 @@ export async function insertReservationRecord(input: {
     agreedCancelPolicy: input.agreedCancelPolicy,
     agreedPhotoPost: input.agreedPhotoPost,
     optionSwingVideo: input.optionSwingVideo ?? false,
+    roundBookingType: input.roundBookingType ?? null,
+    roundParticipantCount: input.roundParticipantCount ?? null,
+    totalPrice: input.totalPrice,
     cancelledAt: null,
     cancelReason: null,
     createdAt: now,

@@ -52,6 +52,8 @@ export type Schedule = {
 };
 
 // ------------------------------------------------------------------ Reservation
+export type RoundBookingType = "private" | "shared";
+
 export type Reservation = {
   id: string;
   userId: string;
@@ -63,6 +65,12 @@ export type Reservation = {
   agreedCancelPolicy: boolean;
   agreedPhotoPost: boolean;
   optionSwingVideo: boolean;
+  /** ラウンドレッスン用: 予約タイプ (private=貸切 / shared=組み合わせ) */
+  roundBookingType: RoundBookingType | null;
+  /** ラウンドレッスン用: 参加人数 (privateのみ意味あり) */
+  roundParticipantCount: number | null;
+  /** 合計料金（ラウンドは人数/タイプで算出、その他はschedule.price） */
+  totalPrice: number;
   cancelledAt: Date | null;
   cancelReason: string | null;
   createdAt: Date;

@@ -175,11 +175,18 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
                             {rsv.schedule.location}
                           </span>
                         )}
+                        {rsv.roundBookingType && (
+                          <span className="text-amber-600">
+                            {rsv.roundBookingType === "private"
+                              ? `貸切予約・${rsv.roundParticipantCount ?? 1}名`
+                              : "組み合わせ予約（相席）"}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-medium text-stone-700">
-                        ¥{rsv.schedule.lessonPlan.price.toLocaleString()}
+                        ¥{(rsv.totalPrice ?? rsv.schedule.lessonPlan.price).toLocaleString()}
                       </p>
                     </div>
                   </div>

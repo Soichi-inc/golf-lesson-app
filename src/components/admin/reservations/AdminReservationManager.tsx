@@ -123,7 +123,9 @@ export function AdminReservationManager({ reservations: initial }: Props) {
                 <p className="font-medium text-stone-800 text-sm">{rsv.schedule.lessonPlan.name}</p>
                 <Badge variant="outline" className={`text-[10px] ${s.className}`}>{s.label}</Badge>
               </div>
-              <p className="text-sm font-medium text-stone-600">¥{rsv.schedule.lessonPlan.price.toLocaleString()}</p>
+              <p className="text-sm font-medium text-stone-600">
+                ¥{(rsv.totalPrice ?? rsv.schedule.lessonPlan.price).toLocaleString()}
+              </p>
             </div>
 
             <div className="flex flex-col gap-1 text-xs text-stone-500 mb-2">
@@ -140,6 +142,13 @@ export function AdminReservationManager({ reservations: initial }: Props) {
                 <span className="flex items-center gap-1.5">
                   <MapPin className="size-3 shrink-0" />
                   {rsv.schedule.location}
+                </span>
+              )}
+              {rsv.roundBookingType && (
+                <span className="text-amber-700 font-medium">
+                  {rsv.roundBookingType === "private"
+                    ? `貸切・${rsv.roundParticipantCount ?? 1}名`
+                    : "組み合わせ予約（相席）"}
                 </span>
               )}
             </div>
