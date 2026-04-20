@@ -38,7 +38,7 @@ const formSchema = z.object({
   optionSwingVideo: z.boolean(),
   // ラウンドレッスン用
   roundBookingType: z.enum(["private", "shared"]).optional(),
-  roundParticipantCount: z.coerce.number().int().min(1).max(3).optional(),
+  roundParticipantCount: z.number().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
