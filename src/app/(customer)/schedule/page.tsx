@@ -14,11 +14,13 @@ export default async function SchedulePage() {
     getBookedCountsByScheduleId(),
   ]);
 
-  // 公開中 かつ 定員未満 の枠のみ渡す
+  // 公開中 かつ 定員未満 かつ 貸切で占有されていない 枠のみ表示
   const availableSchedules = allSchedules.filter((s) => {
     if (!s.isAvailable) return false;
-    const booked = bookedCounts[s.id] ?? 0;
-    return booked < s.maxAttendees;
+    const info = bookedCounts[s.id];
+    if (!info) return true; // 予約無しなら空き
+    if (info.privateLocked) return false; // 貸切が入っていたら非表示
+    return info.count < s.maxAttendees;
   });
 
   return (

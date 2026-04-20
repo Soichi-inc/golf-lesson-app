@@ -11,7 +11,6 @@ import {
 import type { RoundBookingType } from "@/types";
 import {
   calcRoundPrice,
-  roundSeatsConsumed,
   MAX_PRIVATE_PARTICIPANTS,
 } from "@/lib/round-pricing";
 
@@ -44,7 +43,6 @@ export async function submitReservation(input: ReserveInput) {
     // 3. ラウンドレッスンの場合は予約タイプ & 人数必須
     let roundBookingType: RoundBookingType | null = null;
     let roundParticipantCount: number | null = null;
-    let seatsToConsume = 1;
     let lessonPrice = schedule.lessonPlan.price;
 
     if (isRound) {
@@ -68,35 +66,59 @@ export async function submitReservation(input: ReserveInput) {
       }
 
       lessonPrice = calcRoundPrice(roundBookingType, roundParticipantCount);
-      seatsToConsume = roundSeatsConsumed(roundBookingType, roundParticipantCount);
     }
 
     const totalPrice = lessonPrice + (input.optionSwingVideo ? OPTION_SWING_VIDEO_PRICE : 0);
 
-    // 4. 定員チェック
+    // 4. 排他制御：既存の有効予約をチェック
     const allReservations = await getAllReservations();
     const activeReservationsForSchedule = allReservations.filter(
       (r) => r.scheduleId === input.scheduleId && r.status !== "CANCELLED"
     );
-    const occupiedSeats = activeReservationsForSchedule.reduce((sum, r) => {
-      // 既存予約の席消費を正確に計算
-      if (r.roundBookingType === "private" && r.roundParticipantCount) {
-        return sum + r.roundParticipantCount;
-      }
-      return sum + 1;
-    }, 0);
-
-    if (occupiedSeats + seatsToConsume > schedule.maxAttendees) {
-      return {
-        success: false,
-        error: `このスケジュールは残り${Math.max(0, schedule.maxAttendees - occupiedSeats)}席のみです`,
-      };
-    }
 
     // 重複予約チェック
     const duplicate = activeReservationsForSchedule.find((r) => r.userId === user.id);
     if (duplicate) {
       return { success: false, error: "このスケジュールには既に予約済みです" };
+    }
+
+    // 既存予約の内訳を確認
+    const existingPrivate = activeReservationsForSchedule.find(
+      (r) => r.roundBookingType === "private"
+    );
+    const existingShared = activeReservationsForSchedule.filter(
+      (r) => r.roundBookingType === "shared"
+    );
+    const existingRegular = activeReservationsForSchedule.filter(
+      (r) => !r.roundBookingType
+    );
+
+    if (roundBookingType === "private") {
+      // 貸切予約は「枠全体を独占」するため、他の予約が1件でもあれば不可
+      if (activeReservationsForSchedule.length > 0) {
+        return {
+          success: false,
+          error:
+            "この枠には既に他のご予約が入っているため、貸切予約はできません。組み合わせ予約または別の日時をお選びください。",
+        };
+      }
+    } else if (roundBookingType === "shared") {
+      // 組み合わせ予約: 貸切との同居は不可
+      if (existingPrivate) {
+        return {
+          success: false,
+          error: "この枠は既に貸切予約が入っているため、予約できません。",
+        };
+      }
+      // 組み合わせ同士の定員チェック（1人1席）
+      if (existingShared.length + 1 > schedule.maxAttendees) {
+        return { success: false, error: "このスケジュールは満員です" };
+      }
+    } else {
+      // ラウンド以外（通常レッスン）: 既存が1件でもあれば満員
+      if (existingRegular.length + 1 > schedule.maxAttendees) {
+        return { success: false, error: "このスケジュールは満員です" };
+      }
     }
 
     // 5. 予約データを保存

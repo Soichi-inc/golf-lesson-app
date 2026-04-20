@@ -104,22 +104,28 @@ export async function getReservationsByUserId(userId: string): Promise<Reservati
 }
 
 /**
- * スケジュールID毎の有効な予約席数を取得（認証不要・PII を含まない安全な集計）
- * CANCELLED以外を「埋まっている」扱い。スケジュール画面での満枠判定に使用。
- * 貸切予約は roundParticipantCount 分の席を消費。
+ * スケジュールID毎の埋まり状況（認証不要・PII を含まない安全な集計）
+ * 貸切予約が入っている枠は満枠扱い（席数 = maxAttendees+ を返して必ず満枠判定）
+ * 通常／組み合わせは実際の席数を返す。
  */
-export async function getBookedCountsByScheduleId(): Promise<Record<string, number>> {
+export async function getBookedCountsByScheduleId(): Promise<Record<string, { count: number; privateLocked: boolean }>> {
   const records = await readReservationRecords();
-  return records.reduce<Record<string, number>>((acc, r) => {
-    if (r.status !== "CANCELLED") {
-      const seats =
-        r.roundBookingType === "private" && r.roundParticipantCount
-          ? r.roundParticipantCount
-          : 1;
-      acc[r.scheduleId] = (acc[r.scheduleId] ?? 0) + seats;
+  const active = records.filter((r) => r.status !== "CANCELLED");
+
+  const result: Record<string, { count: number; privateLocked: boolean }> = {};
+  for (const r of active) {
+    if (!result[r.scheduleId]) {
+      result[r.scheduleId] = { count: 0, privateLocked: false };
     }
-    return acc;
-  }, {});
+    if (r.roundBookingType === "private") {
+      // 貸切: 枠独占
+      result[r.scheduleId].privateLocked = true;
+      result[r.scheduleId].count += 1;
+    } else {
+      result[r.scheduleId].count += 1;
+    }
+  }
+  return result;
 }
 
 /** 予約を承認（CONFIRMED）＋ 顧客・管理者にメール送信（ADMIN専用） */

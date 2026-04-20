@@ -233,7 +233,7 @@ export function ReservationForm({ schedule: rawSchedule }: Props) {
                           <span className="text-sm font-medium text-stone-800">貸切予約</span>
                         </div>
                         <p className="text-[11px] text-stone-500 leading-relaxed">
-                          1〜3名で枠を貸切。同伴者を連れての予約も可能です。
+                          枠全体を独占。1名（マンツーマン）〜3名まで。他のお客様は参加しません。
                         </p>
                       </button>
 
