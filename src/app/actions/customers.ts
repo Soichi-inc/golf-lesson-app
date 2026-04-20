@@ -18,21 +18,21 @@ export async function getCustomers(): Promise<User[]> {
   await requireAdmin();
   const admin = createAdminClient();
 
-  const all: Awaited<ReturnType<typeof admin.auth.admin.listUsers>>["data"]["users"] = [];
-  let page = 1;
-  const perPage = 1000;
+  // 1ページ最大1000件、最大10ページまで（合計1万件）取得
+  type ListUserItem = Awaited<
+    ReturnType<typeof admin.auth.admin.listUsers>
+  >["data"]["users"][number];
+  const all: ListUserItem[] = [];
 
-  // 念のため最大10ページまでページング（1万人まで対応）
-  for (let i = 0; i < 10; i++) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+  for (let page = 1; page <= 10; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
     if (error) {
       console.error("[getCustomers] error:", error);
       break;
     }
     if (!data.users.length) break;
     all.push(...data.users);
-    if (data.users.length < perPage) break;
-    page++;
+    if (data.users.length < 1000) break;
   }
 
   return all
