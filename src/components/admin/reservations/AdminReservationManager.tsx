@@ -15,7 +15,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { updateReservationStatus, approveReservation, rejectReservation } from "@/app/actions/reservations";
+import { updateReservationStatus, approveReservation, rejectReservation, completeReservation } from "@/app/actions/reservations";
 import type { Reservation } from "@/types";
 
 const STATUS_MAP: Record<
@@ -28,7 +28,7 @@ const STATUS_MAP: Record<
   CANCELLED: { label: "キャンセル",   className: "bg-stone-100 text-stone-500 border-stone-200" },
 };
 
-type ActionType = "approve" | "cancel_approve" | "reject";
+type ActionType = "approve" | "cancel_approve" | "reject" | "complete";
 
 type Props = { reservations: Reservation[] };
 
@@ -52,13 +52,16 @@ export function AdminReservationManager({ reservations: initial }: Props) {
     setIsProcessing(true);
 
     const { rsv, type } = actionTarget;
-    const newStatus = type === "approve" ? "CONFIRMED" as const : "CANCELLED" as const;
+    const newStatus =
+      type === "approve" ? "CONFIRMED" as const :
+      type === "complete" ? "COMPLETED" as const :
+      "CANCELLED" as const;
 
-    const result = type === "approve"
-      ? await approveReservation(rsv.id)
-      : type === "reject"
-        ? await rejectReservation(rsv.id)
-        : await updateReservationStatus(rsv.id, newStatus);
+    const result =
+      type === "approve"  ? await approveReservation(rsv.id)  :
+      type === "reject"   ? await rejectReservation(rsv.id)   :
+      type === "complete" ? await completeReservation(rsv.id) :
+      await updateReservationStatus(rsv.id, newStatus);
 
     if (result.success) {
       setReservations((prev) =>
@@ -72,6 +75,7 @@ export function AdminReservationManager({ reservations: initial }: Props) {
         approve:        "予約を承認しました",
         cancel_approve: "キャンセルを承認しました",
         reject:         "予約リクエストを却下しました",
+        complete:       "予約を完了にしました",
       };
       showToast(messages[type]);
     } else {
@@ -131,6 +135,16 @@ export function AdminReservationManager({ reservations: initial }: Props) {
                   >
                     <CheckCircle2 className="size-3.5 mr-1" />
                     承認する
+                  </Button>
+                )}
+                {actions.includes("complete") && (
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-4"
+                    onClick={() => setActionTarget({ rsv, type: "complete" })}
+                  >
+                    <CheckCircle2 className="size-3.5 mr-1" />
+                    完了にする
                   </Button>
                 )}
                 {actions.includes("cancel_approve") && (
@@ -211,7 +225,7 @@ export function AdminReservationManager({ reservations: initial }: Props) {
           {confirmed.length === 0
             ? <EmptyState label="確定済みの予約はありません" />
             : confirmed.map((r) => (
-                <ReservationCard key={r.id} rsv={r} actions={["cancel_approve"]} />
+                <ReservationCard key={r.id} rsv={r} actions={["complete", "cancel_approve"]} />
               ))
           }
         </TabsContent>
@@ -234,6 +248,7 @@ export function AdminReservationManager({ reservations: initial }: Props) {
               {actionTarget?.type === "approve"        && "予約を承認しますか？"}
               {actionTarget?.type === "cancel_approve" && "キャンセルを承認しますか？"}
               {actionTarget?.type === "reject"         && "リクエストを却下しますか？"}
+              {actionTarget?.type === "complete"       && "予約を完了にしますか？"}
             </DialogTitle>
             <DialogDescription className="text-sm text-stone-500 mt-1">
               {actionTarget?.rsv.user.name ?? actionTarget?.rsv.user.email} さんの{" "}
@@ -241,6 +256,7 @@ export function AdminReservationManager({ reservations: initial }: Props) {
               {actionTarget?.type === "cancel_approve" && "のキャンセルを承認します。この操作は取り消せません。"}
               {actionTarget?.type === "approve" && "を承認します。"}
               {actionTarget?.type === "reject" && "のリクエストを却下します。"}
+              {actionTarget?.type === "complete" && "のレッスンを完了にします。"}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2 sm:flex-row">
@@ -249,7 +265,11 @@ export function AdminReservationManager({ reservations: initial }: Props) {
             </Button>
             <Button
               size="sm"
-              className={`flex-1 text-white ${actionTarget?.type === "approve" ? "bg-stone-800 hover:bg-stone-700" : "bg-red-600 hover:bg-red-700"}`}
+              className={`flex-1 text-white ${
+                actionTarget?.type === "approve" ? "bg-stone-800 hover:bg-stone-700" :
+                actionTarget?.type === "complete" ? "bg-emerald-600 hover:bg-emerald-700" :
+                "bg-red-600 hover:bg-red-700"
+              }`}
               onClick={handleAction}
               disabled={isProcessing}
             >

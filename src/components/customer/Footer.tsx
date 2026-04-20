@@ -30,7 +30,24 @@ export function CustomerFooter() {
           </nav>
         </div>
 
-        <p className="mt-8 text-center text-[11px] text-stone-400">
+        <nav className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-1 border-t border-stone-100 pt-4">
+          {[
+            { href: "/legal/privacy", label: "プライバシーポリシー" },
+            { href: "/legal/terms", label: "利用規約" },
+            { href: "/legal/tokushoho", label: "特定商取引法に基づく表記" },
+            { href: "/legal/cancel-policy", label: "キャンセルポリシー" },
+          ].map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className="text-[11px] text-stone-400 hover:text-stone-700 transition-colors"
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+
+        <p className="mt-6 text-center text-[11px] text-stone-400">
           © {new Date().getFullYear()} Soichi, Inc. All rights reserved.
         </p>
       </div>

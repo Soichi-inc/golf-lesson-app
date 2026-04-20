@@ -119,6 +119,16 @@ export default function LoginForm() {
             )}
           </div>
 
+          {/* パスワードを忘れた場合 */}
+          <div className="text-right">
+            <Link
+              href="/auth/forgot-password"
+              className="text-xs text-stone-500 hover:text-stone-700 underline underline-offset-2"
+            >
+              パスワードを忘れた方
+            </Link>
+          </div>
+
           {/* ログインボタン */}
           <Button
             type="submit"
