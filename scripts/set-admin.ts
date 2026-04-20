@@ -1,5 +1,5 @@
 /**
- * Admin権限付与スクリプト
+ * Admin権限付与スクリプト（app_metadataに設定）
  * 使い方: npx tsx scripts/set-admin.ts hasama@soichi.tokyo
  */
 import { createClient } from "@supabase/supabase-js";
@@ -30,8 +30,8 @@ async function main() {
     process.exit(1);
   }
 
-  const { error } = await supabase.auth.admin.updateUser(user.id, {
-    user_metadata: { ...user.user_metadata, role: "ADMIN" },
+  const { error } = await supabase.auth.admin.updateUserById(user.id, {
+    app_metadata: { ...user.app_metadata, role: "ADMIN" },
   });
 
   if (error) {
@@ -39,7 +39,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`✅ Successfully set ADMIN role for ${email} (${user.id})`);
+  console.log(`✅ Successfully set ADMIN role (app_metadata) for ${email} (${user.id})`);
 }
 
 main();

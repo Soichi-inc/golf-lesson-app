@@ -26,7 +26,8 @@ export default async function AdminLayout({
     redirect("/auth/login?next=/admin/mayumi");
   }
 
-  const role = user.user_metadata?.role;
+  // ADMINロールは app_metadata（サーバー側のみ書込可）優先、フォールバックで user_metadata も許可（移行期間用）
+  const role = user.app_metadata?.role || user.user_metadata?.role;
   if (role !== "ADMIN") {
     redirect("/");
   }

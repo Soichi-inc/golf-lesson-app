@@ -1,5 +1,6 @@
 /**
  * Adminユーザー作成 + ADMIN権限付与スクリプト
+ * ※ ADMINロールは app_metadata（サーバー側のみ書込可）に設定します
  * 使い方: npx tsx scripts/create-admin.ts hasama@soichi.tokyo password123
  */
 import { createClient } from "@supabase/supabase-js";
@@ -25,20 +26,21 @@ async function main() {
     email,
     password,
     email_confirm: true,
-    user_metadata: { role: "ADMIN", full_name: "Akira Hasama" },
+    app_metadata: { role: "ADMIN" },
+    user_metadata: { full_name: "Admin User" },
   });
 
   if (error) {
     // 既に存在する場合はADMIN権限のみ付与
     if (error.message.includes("already been registered")) {
-      console.log(`User ${email} already exists. Setting ADMIN role...`);
+      console.log(`User ${email} already exists. Setting ADMIN role (app_metadata)...`);
       const { data: { users } } = await supabase.auth.admin.listUsers();
       const user = users.find((u) => u.email === email);
       if (user) {
-        await supabase.auth.admin.updateUser(user.id, {
-          user_metadata: { ...user.user_metadata, role: "ADMIN" },
+        await supabase.auth.admin.updateUserById(user.id, {
+          app_metadata: { ...user.app_metadata, role: "ADMIN" },
         });
-        console.log(`✅ ADMIN role set for ${email}`);
+        console.log(`✅ ADMIN role set for ${email} (app_metadata)`);
       }
       return;
     }
@@ -46,7 +48,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`✅ Created admin user: ${email} (${data.user.id})`);
+  console.log(`✅ Created admin user: ${email} (${data.user.id}) with app_metadata.role=ADMIN`);
 }
 
 main();

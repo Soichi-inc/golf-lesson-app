@@ -53,6 +53,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // 認証済みユーザーがログイン/登録ページにアクセスした場合はトップへリダイレクト
+  // ※ reset-password/forgot-password/callback は例外（パスワード再設定フロー中はセッションが生きている）
   if (user && (pathname === "/auth/login" || pathname === "/auth/register")) {
     return NextResponse.redirect(new URL("/", request.url));
   }
