@@ -1,5 +1,6 @@
 "use server";
 
+import { differenceInCalendarDays } from "date-fns";
 import type { Reservation, ReservationStatus } from "@/types";
 import { getSchedules, getScheduleById } from "@/app/actions/schedules";
 import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
@@ -195,10 +196,14 @@ export async function updateReservationStatus(
   }
 }
 
-/** 顧客による予約キャンセル（所有者のみ。キャンセルポリシーに応じて料金計算） */
+/**
+ * 顧客による予約キャンセル（所有者のみ）
+ * ポリシー: レッスン日の7日前までのみ自己キャンセル可能（無料）。
+ * それ以降はLINE公式からコーチに連絡してもらい、管理画面で手動キャンセル。
+ */
 export async function cancelReservationByCustomer(
   reservationId: string
-): Promise<{ success: boolean; cancelFeeRate?: number; error?: string }> {
+): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requireUser();
     const records = await readReservations();
@@ -210,7 +215,7 @@ export async function cancelReservationByCustomer(
       return { success: false, error: "他のユーザーの予約はキャンセルできません" };
     }
 
-    // 既にキャンセル済み
+    // 既にキャンセル済み / 完了済み
     if (record.status === "CANCELLED") {
       return { success: false, error: "既にキャンセル済みです" };
     }
@@ -218,27 +223,31 @@ export async function cancelReservationByCustomer(
       return { success: false, error: "完了済みの予約はキャンセルできません" };
     }
 
-    // キャンセルポリシーに基づく料金率を計算
+    // スケジュール取得 + 7日前以上か判定
     const schedule = await getScheduleById(record.scheduleId);
     if (!schedule) return { success: false, error: "スケジュールが見つかりません" };
 
-    const now = new Date();
-    const startAt = new Date(schedule.startAt);
-    const daysBefore = Math.floor((startAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const daysBefore = differenceInCalendarDays(
+      new Date(schedule.startAt),
+      new Date()
+    );
 
-    let cancelFeeRate = 0;
-    if (daysBefore < 1) cancelFeeRate = 100;
-    else if (daysBefore < 3) cancelFeeRate = 100;
-    else if (daysBefore < 7) cancelFeeRate = 50;
+    if (daysBefore < 7) {
+      return {
+        success: false,
+        error:
+          "レッスン7日前を過ぎたキャンセルは、LINE公式アカウントから直接コーチにご連絡ください。",
+      };
+    }
 
-    const reason = cancelFeeRate > 0
-      ? `顧客によるキャンセル（${daysBefore}日前・キャンセル料${cancelFeeRate}%）`
-      : "顧客によるキャンセル";
-
-    const result = await _updateReservationStatus(reservationId, "CANCELLED", reason);
+    const result = await _updateReservationStatus(
+      reservationId,
+      "CANCELLED",
+      "顧客によるキャンセル（7日前・無料）"
+    );
     if (!result.success) return result;
 
-    return { success: true, cancelFeeRate };
+    return { success: true };
   } catch (e) {
     return handleActionError(e, "キャンセルに失敗しました");
   }
@@ -254,13 +263,21 @@ export async function getReservationsByUserId(userId: string): Promise<Reservati
   return all.filter((r) => r.userId === userId);
 }
 
-/** 内部用: authなしで特定ユーザーの予約を取得 (admin系集約関数から呼び出し用) */
+/**
+ * 内部用: authなしで特定ユーザーの予約を取得
+ * ⚠️ customers.ts の getCustomerDetail（ADMIN認証済み）からのみ呼び出すこと。
+ * 一般ユーザーからの呼び出しは、getReservationsByUserId（所有者チェック付き）を使う。
+ */
 export async function _getReservationsByUserIdInternal(userId: string): Promise<Reservation[]> {
   const all = await _getAllReservations();
   return all.filter((r) => r.userId === userId);
 }
 
-/** 内部用: authなしで全予約を取得（予約フォームの定員チェック等で使用） */
+/**
+ * 内部用: authなしで全予約を取得
+ * ⚠️ 予約フォームの定員チェック（submitReservation内）からのみ使用。
+ * 個人情報を含むReservationを返すため、一般クライアントには公開しないこと。
+ */
 export async function _getAllReservationsInternal(): Promise<Reservation[]> {
   return _getAllReservations();
 }

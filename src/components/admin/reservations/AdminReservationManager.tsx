@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { CheckCircle2, XCircle, Clock, CalendarDays, MapPin, Loader2, User } from "lucide-react";
@@ -33,10 +34,19 @@ type ActionType = "approve" | "cancel_approve" | "reject" | "complete";
 type Props = { reservations: Reservation[] };
 
 export function AdminReservationManager({ reservations: initial }: Props) {
+  const router = useRouter();
   const [reservations, setReservations] = useState(initial);
   const [actionTarget, setActionTarget] = useState<{ rsv: Reservation; type: ActionType } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // アンマウント時に未クリアの setTimeout を必ず解除
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   const pending   = reservations.filter((r) => r.status === "PENDING");
   const confirmed = reservations.filter((r) => r.status === "CONFIRMED");
@@ -44,7 +54,8 @@ export function AdminReservationManager({ reservations: initial }: Props) {
 
   const showToast = (msg: string) => {
     setToast(msg);
-    setTimeout(() => setToast(null), 3000);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
   };
 
   const handleAction = async () => {
@@ -78,6 +89,9 @@ export function AdminReservationManager({ reservations: initial }: Props) {
         complete:       "予約を完了にしました",
       };
       showToast(messages[type]);
+
+      // サーバー側のデータ更新をRSCに反映（別ページ遷移時に最新表示）
+      router.refresh();
     } else {
       showToast(result.error || "処理に失敗しました");
     }

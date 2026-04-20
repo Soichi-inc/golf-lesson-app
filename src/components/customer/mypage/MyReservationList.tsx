@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { format, differenceInCalendarDays } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CalendarDays, MapPin, Clock, AlertTriangle, Loader2 } from "lucide-react";
+import { CalendarDays, MapPin, Clock, Loader2, MessageCircle, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,20 +28,23 @@ const STATUS_MAP: Record<
   CANCELLED: { label: "キャンセル",   className: "bg-stone-100 text-stone-500 border-stone-200" },
 };
 
-// キャンセルポリシー判定
+// LINE公式アカウント URL
+const LINE_OFFICIAL_URL = "https://lin.ee/mDThmZr";
+
+/**
+ * キャンセルポリシー判定
+ * 7日前以上: 顧客が自分でキャンセル可能（無料）
+ * それ以降: LINE公式からコーチに連絡してもらう
+ */
 function getCancelPolicy(lessonDate: Date): {
-  type: "free" | "half" | "full";
-  label: string;
-  description: string;
+  type: "free" | "line";
+  daysUntil: number;
 } {
   const daysUntil = differenceInCalendarDays(lessonDate, new Date());
-  if (daysUntil >= 7) {
-    return { type: "free", label: "無料キャンセル", description: "7日前以上のため、キャンセル料は発生しません。" };
-  } else if (daysUntil >= 3) {
-    return { type: "half", label: "キャンセル料50%", description: `レッスンまで${daysUntil}日です。キャンセル料（レッスン料金の50%）が発生します。` };
-  } else {
-    return { type: "full", label: "キャンセル料100%", description: `レッスンまで${daysUntil <= 0 ? "当日" : `${daysUntil}日`}です。キャンセル料（レッスン料金の100%）が発生します。` };
-  }
+  return {
+    type: daysUntil >= 7 ? "free" : "line",
+    daysUntil,
+  };
 }
 
 type Props = { reservations: Reservation[] };
@@ -95,25 +98,24 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
     if (!cancelTarget) return;
     setIsProcessing(true);
 
-    const policy = getCancelPolicy(cancelTarget.schedule.startAt);
-    // サーバー側でキャンセルポリシーに基づく料金計算も行う
     const result = await cancelReservationByCustomer(cancelTarget.id);
 
     if (result.success) {
       setReservations((prev) =>
         prev.map((r) =>
           r.id === cancelTarget.id
-            ? { ...r, status: "CANCELLED" as const, cancelledAt: new Date(), cancelReason: policy.label }
+            ? {
+                ...r,
+                status: "CANCELLED" as const,
+                cancelledAt: new Date(),
+                cancelReason: "顧客によるキャンセル（無料）",
+              }
             : r
         )
       );
-      if (policy.type === "free") {
-        setDoneMessage("キャンセルが完了しました。");
-      } else {
-        setDoneMessage("キャンセルが完了しました。キャンセル料についてはお問い合わせください。");
-      }
+      setDoneMessage("キャンセルが完了しました。");
     } else {
-      setDoneMessage("キャンセルに失敗しました。もう一度お試しください。");
+      setDoneMessage(result.error || "キャンセルに失敗しました。もう一度お試しください。");
     }
     setIsProcessing(false);
     setCancelTarget(null);
@@ -204,34 +206,50 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
       <Dialog open={!!cancelTarget} onOpenChange={(open) => { if (!open) setCancelTarget(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-base font-medium">予約をキャンセルしますか？</DialogTitle>
+            <DialogTitle className="text-base font-medium">
+              {policy?.type === "free" ? "予約をキャンセルしますか？" : "キャンセルのご依頼"}
+            </DialogTitle>
             {cancelTarget && (
               <DialogDescription asChild>
                 <div className="text-sm text-stone-600 mt-2 space-y-3">
+                  {/* 予約情報 */}
                   <div className="rounded-lg bg-stone-50 p-3 text-xs space-y-1">
-                    <p className="font-medium text-stone-800">{cancelTarget.schedule.lessonPlan.name}</p>
-                    <p>{format(cancelTarget.schedule.startAt, "yyyy年M月d日（E） HH:mm", { locale: ja })}</p>
+                    <p className="font-medium text-stone-800">
+                      {cancelTarget.schedule.lessonPlan.name}
+                    </p>
+                    <p>
+                      {format(
+                        cancelTarget.schedule.startAt,
+                        "yyyy年M月d日（E） HH:mm",
+                        { locale: ja }
+                      )}
+                    </p>
                   </div>
 
-                  {policy && policy.type !== "free" ? (
-                    <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs space-y-1">
-                      <div className="flex items-center gap-1.5 font-medium text-amber-700">
-                        <AlertTriangle className="size-3.5" />
-                        {policy.label}
-                      </div>
-                      <p className="text-amber-600">{policy.description}</p>
-                      <p className="text-amber-600">キャンセルリクエストを送信します。講師の承認後にキャンセルが確定します。</p>
-                    </div>
+                  {/* 分岐: 7日前以上（free）vs 6日前以内（line） */}
+                  {policy?.type === "free" ? (
+                    <p className="text-xs text-stone-500">
+                      レッスン7日前以上のため、無料でキャンセルできます。
+                    </p>
                   ) : (
-                    <p className="text-xs text-stone-500">{policy?.description}</p>
+                    <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs space-y-2">
+                      <p className="font-medium text-emerald-800">
+                        レッスン7日前を過ぎているため、このページからはキャンセルできません。
+                      </p>
+                      <p className="text-emerald-700 leading-relaxed">
+                        お手数ですが、LINE公式アカウントからコーチに直接ご連絡ください。
+                        （コーチが確認のうえ手動でキャンセル処理いたします）
+                      </p>
+                    </div>
                   )}
 
+                  {/* ポリシー参考 */}
                   <div className="rounded-lg bg-stone-50 p-3 text-xs text-stone-500">
                     <p className="font-medium text-stone-700 mb-1">キャンセルポリシー</p>
                     <ul className="space-y-0.5">
-                      <li>・7日前まで：無料キャンセル</li>
-                      <li>・3〜6日前：レッスン料金の50%</li>
-                      <li>・前日・当日：レッスン料金の100%</li>
+                      <li>・7日前まで：無料キャンセル（マイページから可能）</li>
+                      <li>・3〜6日前：レッスン料金の50%（LINEでご連絡）</li>
+                      <li>・前日・当日：レッスン料金の100%（LINEでご連絡）</li>
                     </ul>
                   </div>
                 </div>
@@ -248,16 +266,36 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
             >
               戻る
             </Button>
-            <Button
-              size="sm"
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-              onClick={handleCancelConfirm}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <><Loader2 className="mr-1.5 size-3.5 animate-spin" />処理中…</>
-              ) : policy?.type === "free" ? "キャンセルする" : "リクエストを送信"}
-            </Button>
+            {policy?.type === "free" ? (
+              <Button
+                size="sm"
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleCancelConfirm}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                    処理中…
+                  </>
+                ) : (
+                  "キャンセルする"
+                )}
+              </Button>
+            ) : (
+              <a
+                href={LINE_OFFICIAL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md h-9 px-3 text-sm font-medium text-white transition-colors"
+                style={{ backgroundColor: "#06C755" }}
+                onClick={() => setCancelTarget(null)}
+              >
+                <MessageCircle className="size-3.5" />
+                LINEで連絡する
+                <ExternalLink className="size-3" />
+              </a>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
