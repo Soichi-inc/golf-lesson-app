@@ -265,6 +265,20 @@ export async function _getAllReservationsInternal(): Promise<Reservation[]> {
   return _getAllReservations();
 }
 
+/**
+ * スケジュールID毎の有効な予約数を取得（認証不要・PII を含まない安全な集計）
+ * CANCELLED以外を「埋まっている」扱い。スケジュール画面での満枠判定に使用。
+ */
+export async function getBookedCountsByScheduleId(): Promise<Record<string, number>> {
+  const records = await readReservations();
+  return records.reduce<Record<string, number>>((acc, r) => {
+    if (r.status !== "CANCELLED") {
+      acc[r.scheduleId] = (acc[r.scheduleId] ?? 0) + 1;
+    }
+    return acc;
+  }, {});
+}
+
 /** 予約を承認（CONFIRMED）＋ 顧客・管理者にメール送信（ADMIN専用） */
 export async function approveReservation(
   reservationId: string

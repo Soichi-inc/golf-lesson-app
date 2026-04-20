@@ -1,16 +1,25 @@
 import type { Metadata } from "next";
 import { SchedulePicker } from "@/components/customer/reserve/SchedulePicker";
 import { getSchedules } from "@/app/actions/schedules";
+import { getBookedCountsByScheduleId } from "@/app/actions/reservations";
 
 export const metadata: Metadata = { title: "スケジュール" };
 
 export const dynamic = "force-dynamic";
 
 export default async function SchedulePage() {
-  const allSchedules = await getSchedules();
+  // 公開スケジュール + 予約数を並行取得
+  const [allSchedules, bookedCounts] = await Promise.all([
+    getSchedules(),
+    getBookedCountsByScheduleId(),
+  ]);
 
-  // 公開中の空き枠のみ渡す
-  const availableSchedules = allSchedules.filter((s) => s.isAvailable);
+  // 公開中 かつ 定員未満 の枠のみ渡す
+  const availableSchedules = allSchedules.filter((s) => {
+    if (!s.isAvailable) return false;
+    const booked = bookedCounts[s.id] ?? 0;
+    return booked < s.maxAttendees;
+  });
 
   return (
     <main className="section-padding">
