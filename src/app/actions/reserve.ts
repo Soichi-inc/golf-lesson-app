@@ -1,10 +1,10 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
 import { sendMail, notifyAdmin } from "@/lib/email/send";
 import { reservationRequestEmail, adminNewReservationEmail } from "@/lib/email/templates";
 import { getScheduleById } from "@/app/actions/schedules";
-import { addReservation } from "@/app/actions/reservations";
+import { addReservation, _getAllReservationsInternal } from "@/app/actions/reservations";
+import { requireUser, handleActionError } from "@/lib/auth/guard";
 
 type ReserveInput = {
   scheduleId: string;
@@ -15,13 +15,9 @@ type ReserveInput = {
 };
 
 export async function submitReservation(input: ReserveInput) {
+  try {
   // 1. ログインユーザーを取得
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { success: false, error: "ログインが必要です" };
-  }
+  const user = await requireUser();
 
   // 2. スケジュールを取得（Supabase Storageから）
   const schedule = await getScheduleById(input.scheduleId);
@@ -29,9 +25,24 @@ export async function submitReservation(input: ReserveInput) {
     return { success: false, error: "指定のスケジュールが見つかりません" };
   }
 
-  // 3. 予約データをJSONファイルに保存
-  const userName = user.user_metadata?.full_name || null;
-  const userEmail = user.email || "";
+  // 3. 定員チェック（既存の有効な予約数を確認）
+  const allReservations = await _getAllReservationsInternal();
+  const activeReservationsForSchedule = allReservations.filter(
+    (r) => r.scheduleId === input.scheduleId && r.status !== "CANCELLED"
+  );
+  if (activeReservationsForSchedule.length >= schedule.maxAttendees) {
+    return { success: false, error: "このスケジュールは満員です" };
+  }
+
+  // 重複予約チェック（同じユーザーが同じスケジュールに既に予約していないか）
+  const duplicate = activeReservationsForSchedule.find((r) => r.userId === user.id);
+  if (duplicate) {
+    return { success: false, error: "このスケジュールには既に予約済みです" };
+  }
+
+  // 4. 予約データをJSONファイルに保存
+  const userName = user.fullName;
+  const userEmail = user.email;
 
   const saveResult = await addReservation({
     userId: user.id,
@@ -66,7 +77,10 @@ export async function submitReservation(input: ReserveInput) {
     userEmail || "不明",
     input.concern
   );
-  await notifyAdmin(adminTemplate);
+  await notifyAdmin(adminTemplate).catch(console.error);
 
   return { success: true, reservationId: saveResult.reservationId };
+  } catch (e) {
+    return handleActionError(e, "予約処理に失敗しました");
+  }
 }

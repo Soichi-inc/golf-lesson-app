@@ -5,6 +5,7 @@ import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMail } from "@/lib/email/send";
 import { instructorNoteEmail } from "@/lib/email/templates";
+import { requireAdmin, requireUser, handleActionError } from "@/lib/auth/guard";
 
 const FILE_PATH = "instructor-notes.json";
 
@@ -34,31 +35,45 @@ function toInstructorNote(r: NoteRecord): InstructorNote {
   };
 }
 
-/** 管理者用: ユーザーの全指導メモを取得 */
+/** 管理者用: ユーザーの全指導メモを取得（ADMIN専用） */
 export async function getInstructorNotesByUserId(
+  userId: string
+): Promise<InstructorNote[]> {
+  await requireAdmin();
+  const records = await readNotes();
+  return records.filter((r) => r.userId === userId).map(toInstructorNote);
+}
+
+/** 内部用: authなしで全メモ取得 */
+export async function _getInstructorNotesByUserIdInternal(
   userId: string
 ): Promise<InstructorNote[]> {
   const records = await readNotes();
   return records.filter((r) => r.userId === userId).map(toInstructorNote);
 }
 
-/** 顧客用: 公開メモのみ取得 */
+/** 顧客用: 公開メモのみ取得（所有者本人またはADMIN） */
 export async function getPublicInstructorNotesByUserId(
   userId: string
 ): Promise<InstructorNote[]> {
+  const user = await requireUser();
+  if (user.role !== "ADMIN" && user.id !== userId) {
+    throw new Error("他のユーザーのメモは閲覧できません");
+  }
   const records = await readNotes();
   return records
     .filter((r) => r.userId === userId && !r.isPrivate)
     .map(toInstructorNote);
 }
 
-/** 指導メモを追加 */
+/** 指導メモを追加（ADMIN専用） */
 export async function addInstructorNote(input: {
   userId: string;
   content: string;
   isPrivate: boolean;
 }): Promise<{ success: boolean; note?: InstructorNote; error?: string }> {
   try {
+    await requireAdmin();
     const records = await readNotes();
     const id = `inote-${Date.now()}`;
     const now = new Date().toISOString();
@@ -83,23 +98,22 @@ export async function addInstructorNote(input: {
 
     return { success: true, note: toInstructorNote(record) };
   } catch (e) {
-    console.error("[addInstructorNote]", e);
-    return { success: false, error: "指導メモの保存に失敗しました" };
+    return handleActionError(e, "指導メモの保存に失敗しました");
   }
 }
 
-/** 指導メモを削除 */
+/** 指導メモを削除（ADMIN専用） */
 export async function deleteInstructorNote(
   noteId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireAdmin();
     const records = await readNotes();
     const filtered = records.filter((r) => r.id !== noteId);
     await writeNotes(filtered);
     return { success: true };
   } catch (e) {
-    console.error("[deleteInstructorNote]", e);
-    return { success: false, error: "指導メモの削除に失敗しました" };
+    return handleActionError(e, "指導メモの削除に失敗しました");
   }
 }
 

@@ -2,6 +2,7 @@
 
 import type { Drill, DrillStatus } from "@/types";
 import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
+import { requireAdmin, requireUser, handleActionError } from "@/lib/auth/guard";
 
 // ---------------------------------------------------------------------------
 // Supabase Storage based drill storage
@@ -47,7 +48,7 @@ function toDrill(r: DrillRecord): Drill {
 // Public API
 // ---------------------------------------------------------------------------
 
-/** ドリルを追加 */
+/** ドリルを追加（ADMIN専用） */
 export async function addDrill(input: {
   userId: string;
   title: string;
@@ -56,6 +57,7 @@ export async function addDrill(input: {
   dueDate?: string; // ISO日付文字列
 }): Promise<{ success: boolean; drill?: Drill; error?: string }> {
   try {
+    await requireAdmin();
     const records = await readDrills();
     const id = `drill-${Date.now()}`;
     const now = new Date().toISOString();
@@ -78,32 +80,48 @@ export async function addDrill(input: {
 
     return { success: true, drill: toDrill(record) };
   } catch (e) {
-    console.error("[addDrill]", e);
-    return { success: false, error: "ドリルの保存に失敗しました" };
+    return handleActionError(e, "ドリルの保存に失敗しました");
   }
 }
 
-/** 特定ユーザーのドリル一覧を取得 */
+/** 特定ユーザーのドリル一覧を取得（所有者本人またはADMIN） */
 export async function getDrillsByUserId(userId: string): Promise<Drill[]> {
+  const user = await requireUser();
+  if (user.role !== "ADMIN" && user.id !== userId) {
+    throw new Error("他のユーザーのドリルは閲覧できません");
+  }
   const records = await readDrills();
   return records.filter((r) => r.userId === userId).map(toDrill);
 }
 
-/** 全ドリルを取得 */
+/** 内部用: authなしでユーザーのドリルを取得 */
+export async function _getDrillsByUserIdInternal(userId: string): Promise<Drill[]> {
+  const records = await readDrills();
+  return records.filter((r) => r.userId === userId).map(toDrill);
+}
+
+/** 全ドリルを取得（ADMIN専用） */
 export async function getDrills(): Promise<Drill[]> {
+  await requireAdmin();
   const records = await readDrills();
   return records.map(toDrill);
 }
 
-/** ドリルのステータスを更新 */
+/** ドリルのステータスを更新（所有者本人またはADMIN） */
 export async function updateDrillStatus(
   drillId: string,
   newStatus: DrillStatus
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const user = await requireUser();
     const records = await readDrills();
     const idx = records.findIndex((r) => r.id === drillId);
     if (idx === -1) return { success: false, error: "ドリルが見つかりません" };
+
+    // 所有者または ADMIN のみ更新可能
+    if (user.role !== "ADMIN" && records[idx].userId !== user.id) {
+      return { success: false, error: "このドリルは更新できません" };
+    }
 
     records[idx].status = newStatus;
     records[idx].updatedAt = new Date().toISOString();
@@ -111,22 +129,21 @@ export async function updateDrillStatus(
 
     return { success: true };
   } catch (e) {
-    console.error("[updateDrillStatus]", e);
-    return { success: false, error: "ステータス更新に失敗しました" };
+    return handleActionError(e, "ステータス更新に失敗しました");
   }
 }
 
-/** ドリルを削除 */
+/** ドリルを削除（ADMIN専用） */
 export async function deleteDrill(
   drillId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireAdmin();
     const records = await readDrills();
     const filtered = records.filter((r) => r.id !== drillId);
     await writeDrills(filtered);
     return { success: true };
   } catch (e) {
-    console.error("[deleteDrill]", e);
-    return { success: false, error: "ドリルの削除に失敗しました" };
+    return handleActionError(e, "ドリルの削除に失敗しました");
   }
 }

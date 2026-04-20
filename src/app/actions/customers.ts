@@ -1,15 +1,17 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getReservations, getReservationsByUserId } from "@/app/actions/reservations";
-import { getDrillsByUserId } from "@/app/actions/drills";
-import { getInstructorNotesByUserId } from "@/app/actions/instructorNotes";
-import { getScoresByUserId } from "@/app/actions/scores";
-import { getNotesByUserId } from "@/app/actions/notes";
+import { _getReservationsByUserIdInternal, _getAllReservationsInternal } from "@/app/actions/reservations";
+import { _getDrillsByUserIdInternal } from "@/app/actions/drills";
+import { _getInstructorNotesByUserIdInternal } from "@/app/actions/instructorNotes";
+import { _getScoresByUserIdInternal } from "@/app/actions/scores";
+import { _getNotesByUserIdInternal } from "@/app/actions/notes";
+import { requireAdmin } from "@/lib/auth/guard";
 import type { User, CustomerDetail } from "@/types";
 
-/** Supabase Authから全USER（非ADMIN）を取得 */
+/** Supabase Authから全USER（非ADMIN）を取得（ADMIN専用） */
 export async function getCustomers(): Promise<User[]> {
+  await requireAdmin();
   const admin = createAdminClient();
   const { data: { users }, error } = await admin.auth.admin.listUsers();
 
@@ -19,7 +21,7 @@ export async function getCustomers(): Promise<User[]> {
   }
 
   return users
-    .filter((u) => u.user_metadata?.role !== "ADMIN")
+    .filter((u) => u.user_metadata?.role !== "ADMIN" && u.app_metadata?.role !== "ADMIN")
     .map((u) => ({
       id: u.id,
       email: u.email || "",
@@ -32,17 +34,19 @@ export async function getCustomers(): Promise<User[]> {
     }));
 }
 
-/** 顧客ごとの予約件数（全ステータス）を集計 */
+/** 顧客ごとの予約件数（全ステータス）を集計（ADMIN専用） */
 export async function getReservationCounts(): Promise<Record<string, number>> {
-  const reservations = await getReservations();
+  await requireAdmin();
+  const reservations = await _getAllReservationsInternal();
   return reservations.reduce<Record<string, number>>((acc, r) => {
     acc[r.userId] = (acc[r.userId] ?? 0) + 1;
     return acc;
   }, {});
 }
 
-/** 顧客カルテ用の詳細データを取得 */
+/** 顧客カルテ用の詳細データを取得（ADMIN専用） */
 export async function getCustomerDetail(userId: string): Promise<CustomerDetail | null> {
+  await requireAdmin();
   const admin = createAdminClient();
   const { data: { user }, error } = await admin.auth.admin.getUserById(userId);
 
@@ -52,14 +56,14 @@ export async function getCustomerDetail(userId: string): Promise<CustomerDetail 
   }
 
   // ADMINユーザーはカルテ対象外
-  if (user.user_metadata?.role === "ADMIN") return null;
+  if (user.user_metadata?.role === "ADMIN" || user.app_metadata?.role === "ADMIN") return null;
 
   const [reservations, drills, instructorNotes, roundScores, userNotes] = await Promise.all([
-    getReservationsByUserId(userId),
-    getDrillsByUserId(userId),
-    getInstructorNotesByUserId(userId),
-    getScoresByUserId(userId),
-    getNotesByUserId(userId),
+    _getReservationsByUserIdInternal(userId),
+    _getDrillsByUserIdInternal(userId),
+    _getInstructorNotesByUserIdInternal(userId),
+    _getScoresByUserIdInternal(userId),
+    _getNotesByUserIdInternal(userId),
   ]);
 
   return {

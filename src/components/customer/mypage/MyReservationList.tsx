@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import type { Reservation } from "@/types";
-import { updateReservationStatus } from "@/app/actions/reservations";
+import { cancelReservationByCustomer } from "@/app/actions/reservations";
 
 const STATUS_MAP: Record<
   Reservation["status"],
@@ -96,11 +96,8 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
     setIsProcessing(true);
 
     const policy = getCancelPolicy(cancelTarget.schedule.startAt);
-    const result = await updateReservationStatus(
-      cancelTarget.id,
-      "CANCELLED",
-      policy.type === "free" ? "お客様によるキャンセル（無料）" : `お客様によるキャンセル（${policy.label}）`
-    );
+    // サーバー側でキャンセルポリシーに基づく料金計算も行う
+    const result = await cancelReservationByCustomer(cancelTarget.id);
 
     if (result.success) {
       setReservations((prev) =>

@@ -10,6 +10,7 @@ import {
   adminReservationApprovedEmail,
   adminReservationRejectedEmail,
 } from "@/lib/email/templates";
+import { requireAdmin, requireUser, handleActionError } from "@/lib/auth/guard";
 
 // ---------------------------------------------------------------------------
 // Supabase Storage based reservation storage (MVP)
@@ -86,8 +87,8 @@ export async function addReservation(input: {
   }
 }
 
-/** 全予約を取得（admin用 — scheduleとuser情報を含む） */
-export async function getReservations(): Promise<Reservation[]> {
+/** 全予約を取得（内部ヘルパー - auth不要） */
+async function _getAllReservations(): Promise<Reservation[]> {
   const [records, allSchedules] = await Promise.all([
     readReservations(),
     getSchedules(),
@@ -148,8 +149,14 @@ export async function getReservations(): Promise<Reservation[]> {
   });
 }
 
-/** 予約ステータスを更新 */
-export async function updateReservationStatus(
+/** 全予約を取得（admin専用） */
+export async function getReservations(): Promise<Reservation[]> {
+  await requireAdmin();
+  return _getAllReservations();
+}
+
+/** 予約ステータスを更新（内部ヘルパー - auth不要） */
+async function _updateReservationStatus(
   reservationId: string,
   newStatus: ReservationStatus,
   cancelReason?: string
@@ -174,23 +181,102 @@ export async function updateReservationStatus(
   }
 }
 
-/** 特定ユーザーの予約を取得 */
+/** 予約ステータスを更新（ADMIN専用） */
+export async function updateReservationStatus(
+  reservationId: string,
+  newStatus: ReservationStatus,
+  cancelReason?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+    return _updateReservationStatus(reservationId, newStatus, cancelReason);
+  } catch (e) {
+    return handleActionError(e, "ステータス更新に失敗しました");
+  }
+}
+
+/** 顧客による予約キャンセル（所有者のみ。キャンセルポリシーに応じて料金計算） */
+export async function cancelReservationByCustomer(
+  reservationId: string
+): Promise<{ success: boolean; cancelFeeRate?: number; error?: string }> {
+  try {
+    const user = await requireUser();
+    const records = await readReservations();
+    const record = records.find((r) => r.id === reservationId);
+    if (!record) return { success: false, error: "予約が見つかりません" };
+
+    // 所有者チェック
+    if (record.userId !== user.id) {
+      return { success: false, error: "他のユーザーの予約はキャンセルできません" };
+    }
+
+    // 既にキャンセル済み
+    if (record.status === "CANCELLED") {
+      return { success: false, error: "既にキャンセル済みです" };
+    }
+    if (record.status === "COMPLETED") {
+      return { success: false, error: "完了済みの予約はキャンセルできません" };
+    }
+
+    // キャンセルポリシーに基づく料金率を計算
+    const schedule = await getScheduleById(record.scheduleId);
+    if (!schedule) return { success: false, error: "スケジュールが見つかりません" };
+
+    const now = new Date();
+    const startAt = new Date(schedule.startAt);
+    const daysBefore = Math.floor((startAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    let cancelFeeRate = 0;
+    if (daysBefore < 1) cancelFeeRate = 100;
+    else if (daysBefore < 3) cancelFeeRate = 100;
+    else if (daysBefore < 7) cancelFeeRate = 50;
+
+    const reason = cancelFeeRate > 0
+      ? `顧客によるキャンセル（${daysBefore}日前・キャンセル料${cancelFeeRate}%）`
+      : "顧客によるキャンセル";
+
+    const result = await _updateReservationStatus(reservationId, "CANCELLED", reason);
+    if (!result.success) return result;
+
+    return { success: true, cancelFeeRate };
+  } catch (e) {
+    return handleActionError(e, "キャンセルに失敗しました");
+  }
+}
+
+/** 特定ユーザーの予約を取得（所有者本人またはADMIN） */
 export async function getReservationsByUserId(userId: string): Promise<Reservation[]> {
-  const all = await getReservations();
+  const user = await requireUser();
+  if (user.role !== "ADMIN" && user.id !== userId) {
+    throw new Error("他のユーザーの予約は閲覧できません");
+  }
+  const all = await _getAllReservations();
   return all.filter((r) => r.userId === userId);
 }
 
-/** 予約を承認（CONFIRMED）＋ 顧客・管理者にメール送信 */
+/** 内部用: authなしで特定ユーザーの予約を取得 (admin系集約関数から呼び出し用) */
+export async function _getReservationsByUserIdInternal(userId: string): Promise<Reservation[]> {
+  const all = await _getAllReservations();
+  return all.filter((r) => r.userId === userId);
+}
+
+/** 内部用: authなしで全予約を取得（予約フォームの定員チェック等で使用） */
+export async function _getAllReservationsInternal(): Promise<Reservation[]> {
+  return _getAllReservations();
+}
+
+/** 予約を承認（CONFIRMED）＋ 顧客・管理者にメール送信（ADMIN専用） */
 export async function approveReservation(
   reservationId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireAdmin();
     const records = await readReservations();
     const record = records.find((r) => r.id === reservationId);
     if (!record) return { success: false, error: "予約が見つかりません" };
 
     // ステータス更新
-    const result = await updateReservationStatus(reservationId, "CONFIRMED");
+    const result = await _updateReservationStatus(reservationId, "CONFIRMED");
     if (!result.success) return result;
 
     // スケジュール取得
@@ -211,23 +297,23 @@ export async function approveReservation(
 
     return { success: true };
   } catch (e) {
-    console.error("[approveReservation]", e);
-    return { success: false, error: "承認処理に失敗しました" };
+    return handleActionError(e, "承認処理に失敗しました");
   }
 }
 
-/** 予約を却下（CANCELLED）＋ 顧客・管理者にメール送信 */
+/** 予約を却下（CANCELLED）＋ 顧客・管理者にメール送信（ADMIN専用） */
 export async function rejectReservation(
   reservationId: string,
   cancelReason?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireAdmin();
     const records = await readReservations();
     const record = records.find((r) => r.id === reservationId);
     if (!record) return { success: false, error: "予約が見つかりません" };
 
     // ステータス更新
-    const result = await updateReservationStatus(reservationId, "CANCELLED", cancelReason);
+    const result = await _updateReservationStatus(reservationId, "CANCELLED", cancelReason);
     if (!result.success) return result;
 
     // スケジュール取得
@@ -248,7 +334,18 @@ export async function rejectReservation(
 
     return { success: true };
   } catch (e) {
-    console.error("[rejectReservation]", e);
-    return { success: false, error: "却下処理に失敗しました" };
+    return handleActionError(e, "却下処理に失敗しました");
+  }
+}
+
+/** 予約を完了（COMPLETED）にマーク（ADMIN専用） */
+export async function completeReservation(
+  reservationId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+    return _updateReservationStatus(reservationId, "COMPLETED");
+  } catch (e) {
+    return handleActionError(e, "完了処理に失敗しました");
   }
 }

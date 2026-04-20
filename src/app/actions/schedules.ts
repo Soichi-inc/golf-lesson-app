@@ -2,6 +2,7 @@
 
 import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
 import type { LessonPlan, Schedule, LessonCategory } from "@/types";
+import { requireAdmin, handleActionError } from "@/lib/auth/guard";
 
 // ---------------------------------------------------------------------------
 // JSON保存用の型（Date は ISO文字列）
@@ -223,11 +224,12 @@ export async function getScheduleById(
   return schedules.find((s) => s.id === scheduleId) ?? null;
 }
 
-/** スケジュールを追加 */
+/** スケジュールを追加（ADMIN専用） */
 export async function addSchedule(
   input: Omit<Schedule, "id" | "createdAt" | "updatedAt">
 ): Promise<{ success: boolean; schedule?: Schedule; error?: string }> {
   try {
+    await requireAdmin();
     const records = await readJsonFromStorage<ScheduleRecord[]>(
       SCHEDULES_PATH,
       defaultSchedules
@@ -246,16 +248,16 @@ export async function addSchedule(
 
     return { success: true, schedule: newSchedule };
   } catch (err) {
-    console.error("[addSchedule] error:", err);
-    return { success: false, error: "スケジュールの保存に失敗しました" };
+    return handleActionError(err, "スケジュールの保存に失敗しました");
   }
 }
 
-/** スケジュールを削除 */
+/** スケジュールを削除（ADMIN専用） */
 export async function deleteSchedule(
   scheduleId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireAdmin();
     const records = await readJsonFromStorage<ScheduleRecord[]>(
       SCHEDULES_PATH,
       defaultSchedules
@@ -264,17 +266,17 @@ export async function deleteSchedule(
     await writeJsonToStorage(SCHEDULES_PATH, filtered);
     return { success: true };
   } catch (err) {
-    console.error("[deleteSchedule] error:", err);
-    return { success: false, error: "スケジュールの削除に失敗しました" };
+    return handleActionError(err, "スケジュールの削除に失敗しました");
   }
 }
 
-/** スケジュールの空き状態を更新 */
+/** スケジュールの空き状態を更新（ADMIN専用） */
 export async function updateScheduleAvailability(
   scheduleId: string,
   isAvailable: boolean
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireAdmin();
     const records = await readJsonFromStorage<ScheduleRecord[]>(
       SCHEDULES_PATH,
       defaultSchedules
@@ -288,7 +290,6 @@ export async function updateScheduleAvailability(
 
     return { success: true };
   } catch (err) {
-    console.error("[updateScheduleAvailability] error:", err);
-    return { success: false, error: "スケジュールの更新に失敗しました" };
+    return handleActionError(err, "スケジュールの更新に失敗しました");
   }
 }

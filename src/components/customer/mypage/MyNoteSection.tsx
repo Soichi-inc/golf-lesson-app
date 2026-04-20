@@ -61,7 +61,6 @@ export function MyNoteSection({ notes: initialNotes, userId }: Props) {
     if (!userId) return;
 
     const result = await addNoteAction({
-      userId,
       title: values.title,
       content: values.content,
       category: values.category,

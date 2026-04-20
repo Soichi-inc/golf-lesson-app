@@ -1,6 +1,7 @@
 "use server";
 
 import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
+import { requireAdmin, handleActionError } from "@/lib/auth/guard";
 
 // プロフィールデータの型
 export type ProfileData = {
@@ -49,14 +50,15 @@ export async function getProfile(): Promise<ProfileData> {
   return readJsonFromStorage<ProfileData>(PROFILE_PATH, defaultProfile);
 }
 
+/** プロフィール保存（ADMIN専用） */
 export async function saveProfile(
   data: ProfileData
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireAdmin();
     await writeJsonToStorage(PROFILE_PATH, data);
     return { success: true };
   } catch (err) {
-    console.error("[saveProfile] error:", err);
-    return { success: false, error: "プロフィールの保存に失敗しました" };
+    return handleActionError(err, "プロフィールの保存に失敗しました");
   }
 }

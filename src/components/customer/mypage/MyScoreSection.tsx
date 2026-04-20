@@ -71,7 +71,6 @@ export function MyScoreSection({ scores: initialScores, userId }: Props) {
     const toInt = (s: string) => (s.trim() === "" ? null : parseInt(s, 10));
 
     const result = await addScoreAction({
-      userId,
       playedAt: raw.playedAt,
       courseName: raw.courseName,
       score,

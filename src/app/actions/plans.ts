@@ -1,6 +1,7 @@
 "use server";
 
 import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
+import { requireAdmin, handleActionError } from "@/lib/auth/guard";
 
 // レッスンプランの型
 export type PlanData = {
@@ -71,27 +72,30 @@ export async function getPlans(): Promise<PlanData[]> {
   return readJsonFromStorage<PlanData[]>(PLANS_PATH, defaultPlans);
 }
 
+/** プラン保存（ADMIN専用） */
 export async function savePlans(
   plans: PlanData[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireAdmin();
     await writeJsonToStorage(PLANS_PATH, plans);
     return { success: true };
   } catch (err) {
-    console.error("[savePlans] error:", err);
-    return { success: false, error: "レッスンプランの保存に失敗しました" };
+    return handleActionError(err, "レッスンプランの保存に失敗しました");
   }
 }
 
+/** プラン削除（ADMIN専用） */
 export async function deletePlan(
   planId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireAdmin();
     const plans = await getPlans();
     const filtered = plans.filter((p) => p.id !== planId);
-    return savePlans(filtered);
+    await writeJsonToStorage(PLANS_PATH, filtered);
+    return { success: true };
   } catch (err) {
-    console.error("[deletePlan] error:", err);
-    return { success: false, error: "プランの削除に失敗しました" };
+    return handleActionError(err, "プランの削除に失敗しました");
   }
 }
