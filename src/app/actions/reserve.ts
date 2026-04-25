@@ -8,11 +8,19 @@ import {
   insertReservationRecord,
   getAllReservations,
 } from "@/lib/data/reservations";
-import type { RoundBookingType } from "@/types";
+import type {
+  IndoorFlexDuration,
+  IndoorLocationType,
+  RoundBookingType,
+} from "@/types";
 import {
   calcRoundPrice,
   MAX_PRIVATE_PARTICIPANTS,
 } from "@/lib/round-pricing";
+import {
+  INDOOR_FLEX_DURATIONS,
+  calcIndoorFlexPrice,
+} from "@/lib/indoor-flex-pricing";
 
 const OPTION_SWING_VIDEO_PRICE = 3000;
 
@@ -25,6 +33,11 @@ type ReserveInput = {
   /** ラウンドレッスン専用 */
   roundBookingType?: RoundBookingType;
   roundParticipantCount?: number;
+  /** インドア・場所リクエスト枠専用 */
+  indoorLocationType?: IndoorLocationType;
+  requestedLocation?: string;
+  requestedDuration?: IndoorFlexDuration;
+  usesTicketPack?: boolean;
 };
 
 export async function submitReservation(input: ReserveInput) {
@@ -39,11 +52,18 @@ export async function submitReservation(input: ReserveInput) {
     }
 
     const isRound = schedule.lessonPlan.category === "ROUND";
+    const isIndoorFlex = !isRound && schedule.allowAnyLocation;
 
     // 3. ラウンドレッスンの場合は予約タイプ & 人数必須
     let roundBookingType: RoundBookingType | null = null;
     let roundParticipantCount: number | null = null;
     let lessonPrice = schedule.lessonPlan.price;
+
+    // インドア・場所リクエスト枠
+    let indoorLocationType: IndoorLocationType | null = null;
+    let requestedLocation: string | null = null;
+    let requestedDuration: IndoorFlexDuration | null = null;
+    let usesTicketPack: boolean | null = null;
 
     if (isRound) {
       if (!input.roundBookingType) {
@@ -66,6 +86,37 @@ export async function submitReservation(input: ReserveInput) {
       }
 
       lessonPrice = calcRoundPrice(roundBookingType, roundParticipantCount);
+    } else if (isIndoorFlex) {
+      if (!input.indoorLocationType) {
+        return { success: false, error: "場所の選択方法を選んでください" };
+      }
+      indoorLocationType = input.indoorLocationType;
+
+      const trimmedLocation = (input.requestedLocation ?? "").trim();
+      if (!trimmedLocation) {
+        return {
+          success: false,
+          error:
+            indoorLocationType === "existing"
+              ? "店舗を選択してください"
+              : "ご希望の場所を入力してください",
+        };
+      }
+      requestedLocation = trimmedLocation;
+
+      if (indoorLocationType === "custom") {
+        const dur = input.requestedDuration;
+        if (!dur || !INDOOR_FLEX_DURATIONS.includes(dur)) {
+          return { success: false, error: "レッスン時間（50分／70分）を選択してください" };
+        }
+        requestedDuration = dur;
+        usesTicketPack = !!input.usesTicketPack;
+        lessonPrice = calcIndoorFlexPrice(dur, usesTicketPack);
+      } else {
+        // 既存店舗を選択した場合は通常料金（schedule.lessonPlan.price）を維持
+        // 時間も枠通り（schedule の duration / endAt）
+        lessonPrice = schedule.lessonPlan.price;
+      }
     }
 
     const totalPrice = lessonPrice + (input.optionSwingVideo ? OPTION_SWING_VIDEO_PRICE : 0);
@@ -136,6 +187,10 @@ export async function submitReservation(input: ReserveInput) {
       optionSwingVideo: input.optionSwingVideo,
       roundBookingType,
       roundParticipantCount,
+      indoorLocationType,
+      requestedLocation,
+      requestedDuration,
+      usesTicketPack,
       totalPrice,
     });
 
@@ -146,8 +201,22 @@ export async function submitReservation(input: ReserveInput) {
     // 6. ユーザーにメール送信（非ブロッキング）
     const displayName = userName || userEmail || "お客様";
 
+    const flexInfo = isIndoorFlex
+      ? {
+          indoorLocationType,
+          requestedLocation,
+          requestedDuration,
+          usesTicketPack,
+          totalPrice,
+        }
+      : undefined;
+
     if (userEmail) {
-      const { subject, html } = reservationRequestEmail(schedule, input.concern);
+      const { subject, html } = reservationRequestEmail(
+        schedule,
+        input.concern,
+        flexInfo
+      );
       await sendMail({ to: userEmail, subject, html }).catch((err) => {
         console.error("[submitReservation] user mail error:", err);
       });
@@ -158,7 +227,8 @@ export async function submitReservation(input: ReserveInput) {
       schedule,
       displayName,
       userEmail || "不明",
-      input.concern
+      input.concern,
+      flexInfo
     );
     await notifyAdmin(adminTemplate).catch(console.error);
 

@@ -1,10 +1,45 @@
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { ja } from "date-fns/locale";
-import type { Schedule } from "@/types";
+import type { IndoorFlexDuration, IndoorLocationType, Schedule } from "@/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://golf-lesson-app-mayumi.vercel.app";
 const TZ = "Asia/Tokyo";
+
+/** インドア・場所リクエスト枠の予約情報（メール表示用） */
+export type ReservationFlexInfo = {
+  indoorLocationType: IndoorLocationType | null;
+  requestedLocation: string | null;
+  requestedDuration: IndoorFlexDuration | null;
+  usesTicketPack: boolean | null;
+  totalPrice?: number | null;
+};
+
+function flexInfoRows(flex: ReservationFlexInfo): string {
+  if (!flex.indoorLocationType) return "";
+  const isCustom = flex.indoorLocationType === "custom";
+  const rows: string[] = [];
+  rows.push(`
+        <tr>
+          <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所選択</td>
+          <td style="padding:6px 0;color:#7c3aed;font-weight:500;">${isCustom ? "任意の場所をリクエスト" : "既存店舗から選択"}</td>
+        </tr>`);
+  if (isCustom && flex.requestedDuration) {
+    rows.push(`
+        <tr>
+          <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">予約形式</td>
+          <td style="padding:6px 0;">${flex.requestedDuration}分・${flex.usesTicketPack ? "4回チケット利用" : "単発予約"}</td>
+        </tr>`);
+  }
+  if (isCustom) {
+    rows.push(`
+        <tr>
+          <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">ご注意</td>
+          <td style="padding:6px 0;color:#7c3aed;font-size:12px;">場所代金・ボール代金等はお客様負担。</td>
+        </tr>`);
+  }
+  return rows.join("");
+}
 
 /** 日本時間に変換してフォーマット */
 function fmtJST(date: Date | string, fmt: string): string {
@@ -41,17 +76,35 @@ function wrap(content: string): string {
 }
 
 /** スケジュール情報テーブル（共通パーツ） */
-function scheduleTable(schedule: Schedule, bgColor = "#fafaf9"): string {
+function scheduleTable(
+  schedule: Schedule,
+  bgColor = "#fafaf9",
+  flex?: ReservationFlexInfo
+): string {
   const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
-  const timeStr = `${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(schedule.endAt, "HH:mm")}`;
   const isRound = schedule.lessonPlan.category === "ROUND";
+  // 場所リクエスト・任意場所で時間がリクエストされている場合は終了時刻を再計算
+  const startMs = new Date(schedule.startAt).getTime();
+  const endDate =
+    flex?.requestedDuration
+      ? new Date(startMs + flex.requestedDuration * 60 * 1000)
+      : new Date(schedule.endAt);
+  const durationMinutes = flex?.requestedDuration ?? schedule.lessonPlan.duration;
+  const timeStr = `${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(endDate, "HH:mm")}`;
+  // 表示する場所（リクエスト場所が優先）
+  const locationToShow = flex?.requestedLocation ?? schedule.location;
+  // 表示する料金（任意場所の場合は totalPrice 優先）
+  const priceToShow =
+    flex?.indoorLocationType === "custom" && typeof flex.totalPrice === "number"
+      ? flex.totalPrice
+      : schedule.lessonPlan.price;
 
   return `
     <div style="background:${bgColor};border-radius:12px;padding:20px;margin-bottom:24px;">
       <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
         <tr>
           <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">種別</td>
-          <td style="padding:6px 0;font-weight:500;">${isRound ? "ラウンドレッスン" : "インドアレッスン"}</td>
+          <td style="padding:6px 0;font-weight:500;">${isRound ? "ラウンドレッスン" : "インドアレッスン"}${flex?.indoorLocationType ? "（場所リクエスト枠）" : ""}</td>
         </tr>
         <tr>
           <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
@@ -59,17 +112,22 @@ function scheduleTable(schedule: Schedule, bgColor = "#fafaf9"): string {
         </tr>
         <tr>
           <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
-          <td style="padding:6px 0;">${dateStr}<br>${timeStr}（${schedule.lessonPlan.duration}分）</td>
+          <td style="padding:6px 0;">${dateStr}<br>${timeStr}（${durationMinutes}分）</td>
         </tr>
         ${schedule.teeOffTime ? `
         <tr>
           <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">ティーオフ</td>
           <td style="padding:6px 0;font-weight:500;color:#d97706;">${schedule.teeOffTime}</td>
         </tr>` : ""}
-        ${schedule.location ? `
+        ${locationToShow ? `
         <tr>
           <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
-          <td style="padding:6px 0;">${schedule.location}</td>
+          <td style="padding:6px 0;${flex?.requestedLocation ? "color:#7c3aed;font-weight:500;" : ""}">${locationToShow}</td>
+        </tr>` : ""}
+        ${flex?.indoorLocationType === "custom" && flex.requestedDuration ? `
+        <tr>
+          <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">予約形式</td>
+          <td style="padding:6px 0;">${flex.usesTicketPack ? "4回チケット利用" : "単発予約"}</td>
         </tr>` : ""}
         ${schedule.note ? `
         <tr>
@@ -78,14 +136,18 @@ function scheduleTable(schedule: Schedule, bgColor = "#fafaf9"): string {
         </tr>` : ""}
         <tr>
           <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">料金</td>
-          <td style="padding:6px 0;font-weight:600;">¥${schedule.lessonPlan.price.toLocaleString()}（税込）</td>
+          <td style="padding:6px 0;font-weight:600;">¥${priceToShow.toLocaleString()}（税込）${flex?.indoorLocationType === "custom" ? '<br><span style="color:#7c3aed;font-size:11px;font-weight:normal;">※場所代金・ボール代金等は別途お客様負担</span>' : ""}</td>
         </tr>
       </table>
     </div>`;
 }
 
 /** 予約リクエスト受付メール（ユーザー向け） */
-export function reservationRequestEmail(schedule: Schedule, concern?: string): { subject: string; html: string } {
+export function reservationRequestEmail(
+  schedule: Schedule,
+  concern?: string,
+  flex?: ReservationFlexInfo
+): { subject: string; html: string } {
   const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
 
   return {
@@ -99,7 +161,7 @@ export function reservationRequestEmail(schedule: Schedule, concern?: string): {
         講師が確認のうえ、承認しましたらメールにてお知らせいたします。
       </p>
 
-      ${scheduleTable(schedule)}
+      ${scheduleTable(schedule, "#fafaf9", flex)}
 
       ${concern ? `
       <div style="background:#fffbeb;border-radius:12px;padding:16px;margin-bottom:24px;">
@@ -119,9 +181,11 @@ export function reservationRequestEmail(schedule: Schedule, concern?: string): {
 }
 
 /** 予約承認メール（ユーザー向け） */
-export function reservationConfirmedEmail(schedule: Schedule): { subject: string; html: string } {
+export function reservationConfirmedEmail(
+  schedule: Schedule,
+  flex?: ReservationFlexInfo
+): { subject: string; html: string } {
   const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
-  const timeStr = `${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(schedule.endAt, "HH:mm")}`;
 
   return {
     subject: `【予約確定】${dateStr} ${schedule.lessonPlan.name}`,
@@ -134,7 +198,7 @@ export function reservationConfirmedEmail(schedule: Schedule): { subject: string
         当日お会いできることを楽しみにしています！
       </p>
 
-      ${scheduleTable(schedule, "#f0fdf4")}
+      ${scheduleTable(schedule, "#f0fdf4", flex)}
 
       <a href="${APP_URL}/mypage/reservations" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
         マイページで確認する
@@ -144,7 +208,11 @@ export function reservationConfirmedEmail(schedule: Schedule): { subject: string
 }
 
 /** 予約却下メール（ユーザー向け） */
-export function reservationRejectedEmail(schedule: Schedule, reason?: string): { subject: string; html: string } {
+export function reservationRejectedEmail(
+  schedule: Schedule,
+  reason?: string,
+  flex?: ReservationFlexInfo
+): { subject: string; html: string } {
   const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
 
   return {
@@ -158,7 +226,7 @@ export function reservationRejectedEmail(schedule: Schedule, reason?: string): {
         別の日程で改めてご予約いただけますと幸いです。
       </p>
 
-      ${scheduleTable(schedule, "#fef2f2")}
+      ${scheduleTable(schedule, "#fef2f2", flex)}
 
       ${reason ? `
       <div style="background:#fef2f2;border-radius:12px;padding:16px;margin-bottom:24px;">
@@ -174,9 +242,21 @@ export function reservationRejectedEmail(schedule: Schedule, reason?: string): {
 }
 
 /** 管理者向け新規予約通知 */
-export function adminNewReservationEmail(schedule: Schedule, userName: string, userEmail: string, concern?: string): { subject: string; html: string } {
+export function adminNewReservationEmail(
+  schedule: Schedule,
+  userName: string,
+  userEmail: string,
+  concern?: string,
+  flex?: ReservationFlexInfo
+): { subject: string; html: string } {
   const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
-  const timeStr = `${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(schedule.endAt, "HH:mm")}`;
+  // 場所リクエスト・任意場所で時間がリクエストされている場合は終了時刻を再計算
+  const startMs = new Date(schedule.startAt).getTime();
+  const endDate =
+    flex?.requestedDuration
+      ? new Date(startMs + flex.requestedDuration * 60 * 1000)
+      : new Date(schedule.endAt);
+  const timeStr = `${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(endDate, "HH:mm")}`;
 
   return {
     subject: `【新規予約リクエスト】${userName} - ${dateStr}`,
@@ -192,21 +272,27 @@ export function adminNewReservationEmail(schedule: Schedule, userName: string, u
           </tr>
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
-            <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
+            <td style="padding:6px 0;">${schedule.lessonPlan.name}${flex?.indoorLocationType ? "（場所リクエスト枠）" : ""}</td>
           </tr>
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
-            <td style="padding:6px 0;">${dateStr} ${timeStr}</td>
+            <td style="padding:6px 0;">${dateStr} ${timeStr}${flex?.requestedDuration ? `（${flex.requestedDuration}分リクエスト）` : ""}</td>
           </tr>
           ${schedule.teeOffTime ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">ティーオフ</td>
             <td style="padding:6px 0;font-weight:500;color:#d97706;">${schedule.teeOffTime}</td>
           </tr>` : ""}
-          ${schedule.location ? `
+          ${flex?.requestedLocation || schedule.location ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
-            <td style="padding:6px 0;">${schedule.location}</td>
+            <td style="padding:6px 0;${flex?.requestedLocation ? "color:#7c3aed;font-weight:500;" : ""}">${flex?.requestedLocation ?? schedule.location}</td>
+          </tr>` : ""}
+          ${flexInfoRows(flex ?? { indoorLocationType: null, requestedLocation: null, requestedDuration: null, usesTicketPack: null })}
+          ${typeof flex?.totalPrice === "number" ? `
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">予約料金</td>
+            <td style="padding:6px 0;font-weight:600;">¥${flex.totalPrice.toLocaleString()}（税込）</td>
           </tr>` : ""}
           ${concern ? `
           <tr>
@@ -223,8 +309,18 @@ export function adminNewReservationEmail(schedule: Schedule, userName: string, u
 }
 
 /** 管理者向け予約承認通知 */
-export function adminReservationApprovedEmail(schedule: Schedule, userName: string, userEmail: string): { subject: string; html: string } {
+export function adminReservationApprovedEmail(
+  schedule: Schedule,
+  userName: string,
+  userEmail: string,
+  flex?: ReservationFlexInfo
+): { subject: string; html: string } {
   const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
+  const startMs = new Date(schedule.startAt).getTime();
+  const endDate =
+    flex?.requestedDuration
+      ? new Date(startMs + flex.requestedDuration * 60 * 1000)
+      : new Date(schedule.endAt);
 
   return {
     subject: `【予約承認済】${userName} - ${dateStr}`,
@@ -244,13 +340,14 @@ export function adminReservationApprovedEmail(schedule: Schedule, userName: stri
           </tr>
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
-            <td style="padding:6px 0;">${dateStr} ${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(schedule.endAt, "HH:mm")}</td>
+            <td style="padding:6px 0;">${dateStr} ${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(endDate, "HH:mm")}</td>
           </tr>
-          ${schedule.location ? `
+          ${flex?.requestedLocation || schedule.location ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
-            <td style="padding:6px 0;">${schedule.location}</td>
+            <td style="padding:6px 0;${flex?.requestedLocation ? "color:#7c3aed;font-weight:500;" : ""}">${flex?.requestedLocation ?? schedule.location}</td>
           </tr>` : ""}
+          ${flexInfoRows(flex ?? { indoorLocationType: null, requestedLocation: null, requestedDuration: null, usesTicketPack: null })}
         </table>
       </div>
       <a href="${APP_URL}/admin/mayumi/reservations" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
@@ -292,8 +389,18 @@ export function instructorNoteEmail(
 }
 
 /** 管理者向け予約却下通知 */
-export function adminReservationRejectedEmail(schedule: Schedule, userName: string, userEmail: string): { subject: string; html: string } {
+export function adminReservationRejectedEmail(
+  schedule: Schedule,
+  userName: string,
+  userEmail: string,
+  flex?: ReservationFlexInfo
+): { subject: string; html: string } {
   const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
+  const startMs = new Date(schedule.startAt).getTime();
+  const endDate =
+    flex?.requestedDuration
+      ? new Date(startMs + flex.requestedDuration * 60 * 1000)
+      : new Date(schedule.endAt);
 
   return {
     subject: `【予約却下済】${userName} - ${dateStr}`,
@@ -313,8 +420,13 @@ export function adminReservationRejectedEmail(schedule: Schedule, userName: stri
           </tr>
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
-            <td style="padding:6px 0;">${dateStr} ${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(schedule.endAt, "HH:mm")}</td>
+            <td style="padding:6px 0;">${dateStr} ${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(endDate, "HH:mm")}</td>
           </tr>
+          ${flex?.requestedLocation ? `
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">リクエスト場所</td>
+            <td style="padding:6px 0;color:#7c3aed;font-weight:500;">${flex.requestedLocation}</td>
+          </tr>` : ""}
         </table>
       </div>
       <a href="${APP_URL}/admin/mayumi/reservations" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">

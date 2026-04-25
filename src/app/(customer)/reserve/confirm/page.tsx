@@ -50,7 +50,12 @@ export default async function ReserveConfirmPage() {
   const Icon = s.icon;
   const schedule = latest.schedule;
   const startAt = new Date(schedule.startAt);
-  const endAt = new Date(schedule.endAt);
+  const isFlexCustom = latest.indoorLocationType === "custom";
+  const displayDuration = latest.requestedDuration ?? schedule.lessonPlan.duration;
+  const endAt = latest.requestedDuration
+    ? new Date(startAt.getTime() + latest.requestedDuration * 60 * 1000)
+    : new Date(schedule.endAt);
+  const displayLocation = latest.requestedLocation ?? schedule.location;
 
   return (
     <main className="section-padding">
@@ -77,7 +82,12 @@ export default async function ReserveConfirmPage() {
             <div>
               <p className="text-[11px] uppercase tracking-widest text-stone-400 mb-2">レッスン内容</p>
               <p className="text-sm font-medium text-stone-800">{schedule.lessonPlan.name}</p>
-              <p className="text-lg font-light text-stone-700 mt-1">¥{schedule.lessonPlan.price.toLocaleString()} <span className="text-xs text-stone-400">税込</span></p>
+              {schedule.allowAnyLocation && (
+                <Badge variant="outline" className="mt-1 text-[10px] bg-violet-50 text-violet-700 border-violet-200">
+                  場所リクエスト枠
+                </Badge>
+              )}
+              <p className="text-lg font-light text-stone-700 mt-1">¥{(latest.totalPrice ?? schedule.lessonPlan.price).toLocaleString()} <span className="text-xs text-stone-400">税込</span></p>
             </div>
 
             <div className="space-y-2">
@@ -87,12 +97,30 @@ export default async function ReserveConfirmPage() {
               </p>
               <p className="flex items-center gap-2 text-sm text-stone-600">
                 <Clock className="size-4 text-stone-400 shrink-0" />
-                {format(startAt, "HH:mm")} – {format(endAt, "HH:mm")}（{schedule.lessonPlan.duration}分）
+                {format(startAt, "HH:mm")} – {format(endAt, "HH:mm")}（{displayDuration}分
+                {latest.requestedDuration && (
+                  <span className="text-violet-600 ml-1">リクエスト</span>
+                )}
+                ）
               </p>
-              {schedule.location && (
+              {displayLocation && (
                 <p className="flex items-center gap-2 text-sm text-stone-600">
                   <MapPin className="size-4 text-stone-400 shrink-0" />
-                  {schedule.location}
+                  {latest.requestedLocation ? (
+                    <span className="text-violet-700">
+                      {isFlexCustom ? "任意場所：" : "店舗："}
+                      {latest.requestedLocation}
+                    </span>
+                  ) : (
+                    schedule.location
+                  )}
+                </p>
+              )}
+              {isFlexCustom && (
+                <p className="text-xs text-violet-600 leading-relaxed pl-6">
+                  予約形式：{latest.requestedDuration}分・{latest.usesTicketPack ? "4回チケット利用" : "単発予約"}
+                  <br />
+                  ※場所代金・ボール代金等はお客様負担
                 </p>
               )}
             </div>

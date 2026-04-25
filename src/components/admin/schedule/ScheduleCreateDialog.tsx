@@ -25,6 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -41,6 +42,7 @@ const formSchema = z.object({
   teeOffTime: z.string().optional(),
   location: z.string().optional(),
   note: z.string().optional(),
+  allowAnyLocation: z.boolean().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -63,6 +65,7 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
       teeOffTime: "",
       location: "",
       note: "",
+      allowAnyLocation: false,
     },
   });
 
@@ -72,6 +75,8 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
 
     const startAt = new Date(`${values.date}T${values.startTime}:00`);
     const endAt = new Date(startAt.getTime() + plan.duration * 60 * 1000);
+    const allowAnyLocation =
+      plan.category === "REGULAR" && !!values.allowAnyLocation;
 
     onCreated({
       lessonPlanId: values.lessonPlanId,
@@ -82,6 +87,7 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
       isAvailable: true,
       note: values.note || null,
       teeOffTime: values.teeOffTime || null,
+      allowAnyLocation,
     });
 
     form.reset();
@@ -198,6 +204,47 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
                 </FormItem>
               )}
             />
+
+            {/* 場所リクエスト可能（インドアのみ） */}
+            {(() => {
+              const selectedPlan = lessonPlans.find(
+                (p) => p.id === form.watch("lessonPlanId")
+              );
+              if (selectedPlan?.category !== "REGULAR") return null;
+              return (
+                <FormField
+                  control={form.control}
+                  name="allowAnyLocation"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-start gap-3 rounded-xl border border-stone-200 p-3">
+                        <FormControl>
+                          <Checkbox
+                            id="allow-any-location"
+                            checked={!!field.value}
+                            onCheckedChange={field.onChange}
+                            className="mt-0.5"
+                          />
+                        </FormControl>
+                        <div className="flex-1">
+                          <label
+                            htmlFor="allow-any-location"
+                            className="text-sm font-medium text-stone-700 cursor-pointer"
+                          >
+                            場所リクエスト可能枠にする
+                          </label>
+                          <p className="mt-1 text-[11px] text-stone-500 leading-relaxed">
+                            お客様が既存店舗から選択するか、任意の場所をリクエストできるようになります。
+                            任意場所の場合は50分／70分のリクエストと専用料金（場所代金・ボール代金等は別途お客様負担）が適用されます。
+                          </p>
+                        </div>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              );
+            })()}
 
             {/* メモ */}
             <FormField

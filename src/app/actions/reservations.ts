@@ -149,12 +149,22 @@ export async function approveReservation(
 
     const userName = record.userName || record.userEmail || "お客様";
 
+    const flexInfo = record.indoorLocationType
+      ? {
+          indoorLocationType: record.indoorLocationType,
+          requestedLocation: record.requestedLocation ?? null,
+          requestedDuration: record.requestedDuration ?? null,
+          usesTicketPack: record.usesTicketPack ?? null,
+          totalPrice: record.totalPrice ?? null,
+        }
+      : undefined;
+
     if (record.userEmail) {
-      const { subject, html } = reservationConfirmedEmail(schedule);
+      const { subject, html } = reservationConfirmedEmail(schedule, flexInfo);
       await sendMail({ to: record.userEmail, subject, html }).catch(console.error);
     }
 
-    const adminTemplate = adminReservationApprovedEmail(schedule, userName, record.userEmail);
+    const adminTemplate = adminReservationApprovedEmail(schedule, userName, record.userEmail, flexInfo);
     await notifyAdmin(adminTemplate).catch(console.error);
 
     return { success: true };
@@ -182,12 +192,22 @@ export async function rejectReservation(
 
     const userName = record.userName || record.userEmail || "お客様";
 
+    const flexInfo = record.indoorLocationType
+      ? {
+          indoorLocationType: record.indoorLocationType,
+          requestedLocation: record.requestedLocation ?? null,
+          requestedDuration: record.requestedDuration ?? null,
+          usesTicketPack: record.usesTicketPack ?? null,
+          totalPrice: record.totalPrice ?? null,
+        }
+      : undefined;
+
     if (record.userEmail) {
-      const { subject, html } = reservationRejectedEmail(schedule, cancelReason);
+      const { subject, html } = reservationRejectedEmail(schedule, cancelReason, flexInfo);
       await sendMail({ to: record.userEmail, subject, html }).catch(console.error);
     }
 
-    const adminTemplate = adminReservationRejectedEmail(schedule, userName, record.userEmail);
+    const adminTemplate = adminReservationRejectedEmail(schedule, userName, record.userEmail, flexInfo);
     await notifyAdmin(adminTemplate).catch(console.error);
 
     return { success: true };

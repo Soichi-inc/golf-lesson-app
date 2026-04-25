@@ -83,6 +83,7 @@ export function ScheduleManager({ initialSchedules, lessonPlans }: Props) {
       isAvailable: data.isAvailable,
       note: data.note,
       teeOffTime: data.teeOffTime,
+      allowAnyLocation: data.allowAnyLocation,
     });
 
     setSaving(false);

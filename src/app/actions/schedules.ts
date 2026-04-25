@@ -33,6 +33,8 @@ type ScheduleRecord = {
   isAvailable: boolean;
   note: string | null;
   teeOffTime: string | null;
+  /** インドア用: 場所リクエスト可能枠フラグ（既存データ互換のため optional） */
+  allowAnyLocation?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -158,6 +160,7 @@ function toSchedule(r: ScheduleRecord): Schedule {
     lessonPlan: toLessonPlan(r.lessonPlan),
     startAt: new Date(r.startAt),
     endAt: new Date(r.endAt),
+    allowAnyLocation: r.allowAnyLocation ?? false,
     createdAt: new Date(r.createdAt),
     updatedAt: new Date(r.updatedAt),
   };
@@ -177,6 +180,7 @@ function toScheduleRecord(s: Schedule): ScheduleRecord {
     lessonPlan: toLessonPlanRecord(s.lessonPlan),
     startAt: s.startAt instanceof Date ? s.startAt.toISOString() : s.startAt,
     endAt: s.endAt instanceof Date ? s.endAt.toISOString() : s.endAt,
+    allowAnyLocation: s.allowAnyLocation,
     createdAt: s.createdAt instanceof Date ? s.createdAt.toISOString() : s.createdAt,
     updatedAt: s.updatedAt instanceof Date ? s.updatedAt.toISOString() : s.updatedAt,
   };

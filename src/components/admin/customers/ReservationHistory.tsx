@@ -75,12 +75,32 @@ export function ReservationHistory({ reservations }: Props) {
                         locale: ja,
                       })}
                       &nbsp;–&nbsp;
-                      {format(new Date(rsv.schedule.endAt), "HH:mm")}
+                      {format(
+                        rsv.requestedDuration
+                          ? new Date(new Date(rsv.schedule.startAt).getTime() + rsv.requestedDuration * 60 * 1000)
+                          : new Date(rsv.schedule.endAt),
+                        "HH:mm"
+                      )}
+                      {rsv.requestedDuration && (
+                        <span className="ml-1 text-violet-600">（{rsv.requestedDuration}分）</span>
+                      )}
                     </span>
-                    {rsv.schedule.location && (
+                    {(rsv.requestedLocation || rsv.schedule.location) && (
                       <span className="flex items-center gap-1.5">
                         <MapPin className="size-3" />
-                        {rsv.schedule.location}
+                        {rsv.requestedLocation ? (
+                          <span className="text-violet-700">
+                            {rsv.indoorLocationType === "custom" ? "任意場所：" : "店舗："}
+                            {rsv.requestedLocation}
+                          </span>
+                        ) : (
+                          rsv.schedule.location
+                        )}
+                      </span>
+                    )}
+                    {rsv.indoorLocationType === "custom" && (
+                      <span className="text-violet-600 text-[11px]">
+                        場所リクエスト枠 / {rsv.usesTicketPack ? "4回チケット" : "単発"}
                       </span>
                     )}
                   </div>
@@ -97,7 +117,7 @@ export function ReservationHistory({ reservations }: Props) {
                 {/* 料金 */}
                 <div className="text-right shrink-0">
                   <p className="text-sm font-medium text-stone-700">
-                    ¥{rsv.schedule.lessonPlan.price.toLocaleString()}
+                    ¥{(rsv.totalPrice ?? rsv.schedule.lessonPlan.price).toLocaleString()}
                   </p>
                 </div>
               </div>
