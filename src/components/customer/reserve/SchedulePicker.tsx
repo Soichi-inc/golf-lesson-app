@@ -292,10 +292,14 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
                               <p className="mt-1.5 text-[11px] text-stone-400 italic">{slot.note}</p>
                             )}
                           </div>
-                          <p className="text-sm font-medium text-stone-700 shrink-0">
-                            {slot.allowAnyLocation
-                              ? `¥${slot.lessonPlan.price.toLocaleString()}〜`
-                              : `¥${slot.lessonPlan.price.toLocaleString()}`}
+                          <p className="text-sm font-medium text-stone-700 shrink-0 text-right">
+                            {slot.allowAnyLocation ? (
+                              <span className="text-xs text-violet-600">
+                                予約時に確定
+                              </span>
+                            ) : (
+                              `¥${slot.lessonPlan.price.toLocaleString()}`
+                            )}
                           </p>
                         </div>
                       </button>

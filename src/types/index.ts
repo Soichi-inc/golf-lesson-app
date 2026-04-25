@@ -84,6 +84,8 @@ export type Reservation = {
   requestedDuration: IndoorFlexDuration | null;
   /** インドア・場所リクエスト枠用: 4回チケット料金で計算するか */
   usesTicketPack: boolean | null;
+  /** インドア・場所リクエスト枠（既存店舗）用: 選択された既存プランID */
+  existingPlanId: string | null;
   /** 合計料金（ラウンドは人数/タイプで算出、その他はschedule.price） */
   totalPrice: number;
   cancelledAt: Date | null;

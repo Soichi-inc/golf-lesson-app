@@ -41,6 +41,7 @@ export type ReservationRecord = {
   requestedLocation?: string | null;
   requestedDuration?: IndoorFlexDuration | null;
   usesTicketPack?: boolean | null;
+  existingPlanId?: string | null;
   /** 予約時に確定した合計料金 */
   totalPrice: number | null;
   cancelledAt: string | null;
@@ -120,6 +121,7 @@ export async function getAllReservations(): Promise<Reservation[]> {
       requestedLocation: r.requestedLocation ?? null,
       requestedDuration: r.requestedDuration ?? null,
       usesTicketPack: r.usesTicketPack ?? null,
+      existingPlanId: r.existingPlanId ?? null,
       totalPrice: r.totalPrice ?? (schedule?.lessonPlan.price ?? 0),
       cancelledAt: r.cancelledAt ? new Date(r.cancelledAt) : null,
       cancelReason: r.cancelReason,
@@ -174,6 +176,7 @@ export async function insertReservationRecord(input: {
   requestedLocation?: string | null;
   requestedDuration?: IndoorFlexDuration | null;
   usesTicketPack?: boolean | null;
+  existingPlanId?: string | null;
   totalPrice: number;
 }): Promise<{ success: boolean; reservationId?: string; error?: string }> {
   const records = await readReservationRecords();
@@ -197,6 +200,7 @@ export async function insertReservationRecord(input: {
     requestedLocation: input.requestedLocation ?? null,
     requestedDuration: input.requestedDuration ?? null,
     usesTicketPack: input.usesTicketPack ?? null,
+    existingPlanId: input.existingPlanId ?? null,
     totalPrice: input.totalPrice,
     cancelledAt: null,
     cancelReason: null,

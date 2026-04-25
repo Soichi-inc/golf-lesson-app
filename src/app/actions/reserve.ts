@@ -2,7 +2,7 @@
 
 import { sendMail, notifyAdmin } from "@/lib/email/send";
 import { reservationRequestEmail, adminNewReservationEmail } from "@/lib/email/templates";
-import { getScheduleById } from "@/app/actions/schedules";
+import { getScheduleById, getLessonPlans } from "@/app/actions/schedules";
 import { requireUser, handleActionError } from "@/lib/auth/guard";
 import {
   insertReservationRecord,
@@ -35,6 +35,9 @@ type ReserveInput = {
   roundParticipantCount?: number;
   /** インドア・場所リクエスト枠専用 */
   indoorLocationType?: IndoorLocationType;
+  /** indoorLocationType === "existing" の場合：選択した既存プランID */
+  existingPlanId?: string;
+  /** indoorLocationType === "custom" の場合：自由記述の場所 */
   requestedLocation?: string;
   requestedDuration?: IndoorFlexDuration;
   usesTicketPack?: boolean;
@@ -64,6 +67,7 @@ export async function submitReservation(input: ReserveInput) {
     let requestedLocation: string | null = null;
     let requestedDuration: IndoorFlexDuration | null = null;
     let usesTicketPack: boolean | null = null;
+    let existingPlanId: string | null = null;
 
     if (isRound) {
       if (!input.roundBookingType) {
@@ -92,19 +96,13 @@ export async function submitReservation(input: ReserveInput) {
       }
       indoorLocationType = input.indoorLocationType;
 
-      const trimmedLocation = (input.requestedLocation ?? "").trim();
-      if (!trimmedLocation) {
-        return {
-          success: false,
-          error:
-            indoorLocationType === "existing"
-              ? "店舗を選択してください"
-              : "ご希望の場所を入力してください",
-        };
-      }
-      requestedLocation = trimmedLocation;
-
       if (indoorLocationType === "custom") {
+        const trimmedLocation = (input.requestedLocation ?? "").trim();
+        if (!trimmedLocation) {
+          return { success: false, error: "ご希望の場所を入力してください" };
+        }
+        requestedLocation = trimmedLocation;
+
         const dur = input.requestedDuration;
         if (!dur || !INDOOR_FLEX_DURATIONS.includes(dur)) {
           return { success: false, error: "レッスン時間（50分／70分）を選択してください" };
@@ -113,9 +111,24 @@ export async function submitReservation(input: ReserveInput) {
         usesTicketPack = !!input.usesTicketPack;
         lessonPrice = calcIndoorFlexPrice(dur, usesTicketPack);
       } else {
-        // 既存店舗を選択した場合は通常料金（schedule.lessonPlan.price）を維持
-        // 時間も枠通り（schedule の duration / endAt）
-        lessonPrice = schedule.lessonPlan.price;
+        // existing: 選んだ既存プランの情報で確定
+        if (!input.existingPlanId) {
+          return { success: false, error: "店舗（既存プラン）を選択してください" };
+        }
+        const allPlans = await getLessonPlans();
+        const picked = allPlans.find(
+          (p) => p.id === input.existingPlanId && p.category === "REGULAR"
+        );
+        if (!picked) {
+          return { success: false, error: "選択された店舗プランが見つかりません" };
+        }
+        existingPlanId = picked.id;
+        requestedLocation = picked.name;
+        // プランの所要時間に応じて 50/70分 に丸める。それ以外（25分など）はnull扱いで枠通り
+        if (picked.duration === 50 || picked.duration === 70) {
+          requestedDuration = picked.duration;
+        }
+        lessonPrice = picked.price;
       }
     }
 
@@ -191,6 +204,7 @@ export async function submitReservation(input: ReserveInput) {
       requestedLocation,
       requestedDuration,
       usesTicketPack,
+      existingPlanId,
       totalPrice,
     });
 

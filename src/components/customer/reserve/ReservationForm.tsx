@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import type { Schedule } from "@/types";
+import type { LessonPlan, Schedule } from "@/types";
 import {
   calcRoundPrice,
   PRIVATE_PRICE_PER_PERSON,
@@ -46,7 +46,9 @@ const formSchema = z.object({
   roundParticipantCount: z.number().optional(),
   // インドア・場所リクエスト枠用
   indoorLocationType: z.enum(["existing", "custom"]).optional(),
-  existingStore: z.string().optional(),
+  /** indoorLocationType === "existing" の場合：選択した既存プランID */
+  existingPlanId: z.string().optional(),
+  /** indoorLocationType === "custom" の場合：自由記述の場所 */
   customLocation: z.string().max(120, "120文字以内で入力してください").optional(),
   requestedDuration: z.union([z.literal(50), z.literal(70)]).optional(),
   usesTicketPack: z.boolean().optional(),
@@ -63,8 +65,8 @@ const CANCEL_POLICY = `【キャンセルポリシー】
 
 type Props = {
   schedule: Schedule;
-  /** インドア・場所リクエスト枠で「既存店舗を選ぶ」場合の選択肢 */
-  existingStores?: string[];
+  /** インドア・場所リクエスト枠で「既存店舗を選ぶ」場合の選択肢（インドアプラン一覧） */
+  existingPlans?: LessonPlan[];
 };
 
 /** Date文字列→Date変換（Server→Clientのシリアライゼーション対策） */
@@ -87,7 +89,7 @@ function hydrateSchedule(s: Schedule): Schedule {
   };
 }
 
-export function ReservationForm({ schedule: rawSchedule, existingStores = [] }: Props) {
+export function ReservationForm({ schedule: rawSchedule, existingPlans = [] }: Props) {
   const schedule = hydrateSchedule(rawSchedule);
   const router = useRouter();
   const isRound = schedule.lessonPlan.category === "ROUND";
@@ -105,7 +107,7 @@ export function ReservationForm({ schedule: rawSchedule, existingStores = [] }: 
       roundParticipantCount: isRound ? 1 : undefined,
       // インドア・場所リクエスト枠の初期値
       indoorLocationType: isIndoorFlex ? "existing" : undefined,
-      existingStore: "",
+      existingPlanId: "",
       customLocation: "",
       requestedDuration: isIndoorFlex ? 50 : undefined,
       usesTicketPack: false,
@@ -117,10 +119,12 @@ export function ReservationForm({ schedule: rawSchedule, existingStores = [] }: 
   const watchBookingType = form.watch("roundBookingType");
   const watchParticipantCount = form.watch("roundParticipantCount");
   const watchIndoorType = form.watch("indoorLocationType");
-  const watchExistingStore = form.watch("existingStore");
+  const watchExistingPlanId = form.watch("existingPlanId");
   const watchCustomLocation = form.watch("customLocation");
   const watchDuration = form.watch("requestedDuration");
   const watchUsesTicketPack = form.watch("usesTicketPack");
+
+  const selectedExistingPlan = existingPlans.find((p) => p.id === watchExistingPlanId);
 
   // レッスン料金の計算
   let lessonPrice = schedule.lessonPlan.price;
@@ -132,6 +136,8 @@ export function ReservationForm({ schedule: rawSchedule, existingStores = [] }: 
   } else if (isIndoorFlex && watchIndoorType === "custom") {
     const dur = (watchDuration ?? 50) as 50 | 70;
     lessonPrice = calcIndoorFlexPrice(dur, !!watchUsesTicketPack);
+  } else if (isIndoorFlex && watchIndoorType === "existing" && selectedExistingPlan) {
+    lessonPrice = selectedExistingPlan.price;
   }
 
   const totalPrice = lessonPrice + (watchSwingVideo ? OPTION_SWING_VIDEO_PRICE : 0);
@@ -139,36 +145,40 @@ export function ReservationForm({ schedule: rawSchedule, existingStores = [] }: 
   // 表示用の場所・時間
   const displayLocation = isIndoorFlex
     ? watchIndoorType === "existing"
-      ? watchExistingStore || "（店舗を選択してください）"
+      ? selectedExistingPlan?.name || "（店舗を選択してください）"
       : (watchCustomLocation?.trim() || "（場所をリクエストしてください）")
     : schedule.location;
 
-  const displayDuration = isIndoorFlex && watchIndoorType === "custom"
-    ? (watchDuration ?? 50)
+  const displayDuration = isIndoorFlex
+    ? watchIndoorType === "custom"
+      ? (watchDuration ?? 50)
+      : selectedExistingPlan?.duration ?? schedule.lessonPlan.duration
     : schedule.lessonPlan.duration;
 
-  const displayEndAt = isIndoorFlex && watchIndoorType === "custom"
-    ? new Date(schedule.startAt.getTime() + displayDuration * 60 * 1000)
-    : schedule.endAt;
+  const displayEndAt =
+    isIndoorFlex &&
+    ((watchIndoorType === "custom") ||
+      (watchIndoorType === "existing" && !!selectedExistingPlan))
+      ? new Date(schedule.startAt.getTime() + displayDuration * 60 * 1000)
+      : schedule.endAt;
 
   async function onSubmit(values: FormValues) {
     try {
       // インドア・場所リクエスト枠用のバリデーション
-      let requestedLocation: string | undefined;
+      let customLocationTrimmed: string | undefined;
       if (isIndoorFlex) {
         if (values.indoorLocationType === "existing") {
-          if (!values.existingStore) {
-            form.setError("existingStore", { message: "店舗を選択してください" });
+          if (!values.existingPlanId) {
+            form.setError("existingPlanId", { message: "店舗を選択してください" });
             return;
           }
-          requestedLocation = values.existingStore;
         } else if (values.indoorLocationType === "custom") {
           const trimmed = (values.customLocation ?? "").trim();
           if (!trimmed) {
             form.setError("customLocation", { message: "ご希望の場所を入力してください" });
             return;
           }
-          requestedLocation = trimmed;
+          customLocationTrimmed = trimmed;
         } else {
           form.setError("indoorLocationType", { message: "場所の選択方法を選んでください" });
           return;
@@ -184,7 +194,14 @@ export function ReservationForm({ schedule: rawSchedule, existingStores = [] }: 
         roundBookingType: isRound ? values.roundBookingType : undefined,
         roundParticipantCount: isRound ? Number(values.roundParticipantCount) : undefined,
         indoorLocationType: isIndoorFlex ? values.indoorLocationType : undefined,
-        requestedLocation: isIndoorFlex ? requestedLocation : undefined,
+        existingPlanId:
+          isIndoorFlex && values.indoorLocationType === "existing"
+            ? values.existingPlanId
+            : undefined,
+        requestedLocation:
+          isIndoorFlex && values.indoorLocationType === "custom"
+            ? customLocationTrimmed
+            : undefined,
         requestedDuration:
           isIndoorFlex && values.indoorLocationType === "custom"
             ? values.requestedDuration
@@ -319,7 +336,7 @@ export function ReservationForm({ schedule: rawSchedule, existingStores = [] }: 
                           <span className="text-sm font-medium text-stone-800">既存店舗から選ぶ</span>
                         </div>
                         <p className="text-[11px] text-stone-500 leading-relaxed">
-                          通常のインドア店舗から選択。{schedule.lessonPlan.duration}分・¥{schedule.lessonPlan.price.toLocaleString()}（通常料金）。
+                          通常のインドア店舗・プランから選択。各プランの時間・料金がそのまま適用されます。
                         </p>
                       </button>
 
@@ -348,40 +365,45 @@ export function ReservationForm({ schedule: rawSchedule, existingStores = [] }: 
               />
             )}
 
-            {/* インドア・場所リクエスト枠: 既存店舗の選択 */}
+            {/* インドア・場所リクエスト枠: 既存店舗（プラン）の選択 */}
             {isIndoorFlex && watchIndoorType === "existing" && (
               <FormField
                 control={form.control}
-                name="existingStore"
+                name="existingPlanId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-medium text-stone-700">
-                      ご希望の店舗
+                      ご希望のプラン・店舗
                       <span className="ml-2 text-[11px] font-medium text-red-500">必須</span>
                     </FormLabel>
-                    {existingStores.length === 0 ? (
+                    {existingPlans.length === 0 ? (
                       <p className="text-xs text-stone-500 rounded-xl bg-stone-50 border border-stone-200 p-3">
-                        現在、選択可能な店舗の登録がありません。「任意の場所をリクエスト」を選んでください。
+                        現在、選択可能な店舗プランがありません。「任意の場所をリクエスト」を選んでください。
                       </p>
                     ) : (
                       <div className="grid grid-cols-1 gap-2">
-                        {existingStores.map((store) => {
-                          const selected = field.value === store;
+                        {existingPlans.map((plan) => {
+                          const selected = field.value === plan.id;
                           return (
                             <button
-                              key={store}
+                              key={plan.id}
                               type="button"
-                              onClick={() => field.onChange(store)}
+                              onClick={() => field.onChange(plan.id)}
                               className={`rounded-xl border p-3 text-left transition-colors ${
                                 selected
                                   ? "border-stone-800 bg-stone-50"
                                   : "border-stone-200 hover:bg-stone-50"
                               }`}
                             >
-                              <span className="flex items-center gap-1.5 text-sm text-stone-800">
-                                <MapPin className="size-3.5 text-stone-500" />
-                                {store}
-                              </span>
+                              <div className="flex items-start justify-between gap-3">
+                                <span className="flex items-center gap-1.5 text-sm text-stone-800">
+                                  <MapPin className="size-3.5 text-stone-500 shrink-0" />
+                                  {plan.name}
+                                </span>
+                                <span className="shrink-0 text-xs text-stone-600">
+                                  {plan.duration}分 / ¥{plan.price.toLocaleString()}
+                                </span>
+                              </div>
                             </button>
                           );
                         })}
