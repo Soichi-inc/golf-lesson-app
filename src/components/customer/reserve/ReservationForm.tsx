@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CalendarDays, MapPin, Clock, ChevronLeft, ChevronRight, AlertCircle, Loader2, Video, CreditCard, Users, User as UserIcon, Store, Sparkles } from "lucide-react";
+import { CalendarDays, MapPin, Clock, ChevronLeft, ChevronRight, AlertCircle, Loader2, Video, CreditCard, Users, User as UserIcon, Store, Sparkles, Phone, Flag } from "lucide-react";
 import { submitReservation } from "@/app/actions/reserve";
 import {
   Form,
@@ -41,9 +41,17 @@ const formSchema = z.object({
   }),
   agreedPhotoPost: z.boolean(),
   optionSwingVideo: z.boolean(),
+  // 緊急連絡先（必須）
+  emergencyPhone: z
+    .string()
+    .min(1, "緊急連絡先（電話番号）を入力してください")
+    .max(20, "20文字以内で入力してください")
+    .regex(/^[0-9+\-() 　]+$/, "電話番号の形式が正しくありません"),
   // ラウンドレッスン用
   roundBookingType: z.enum(["private", "shared"]).optional(),
   roundParticipantCount: z.number().optional(),
+  /** ラウンド: お客様希望コース（任意） */
+  requestedCourse: z.string().max(200, "200文字以内で入力してください").optional(),
   // インドア・場所リクエスト枠用
   indoorLocationType: z.enum(["existing", "custom"]).optional(),
   /** indoorLocationType === "existing" の場合：選択した既存プランID */
@@ -61,7 +69,9 @@ const CANCEL_POLICY = `【キャンセルポリシー】
 ・3〜6日前：レッスン料金の50%をキャンセル料として申し受けます
 ・前日・当日：レッスン料金の100%をキャンセル料として申し受けます
 
-※やむを得ない事情の場合はご相談ください。`;
+※やむを得ない事情の場合はご相談ください。
+※悪天候により中止する場合があります。
+※講師都合で中止する場合はキャンセル料はいただきません。`;
 
 type Props = {
   schedule: Schedule;
@@ -102,9 +112,11 @@ export function ReservationForm({ schedule: rawSchedule, existingPlans = [] }: P
       agreedCancelPolicy: undefined,
       agreedPhotoPost: false,
       optionSwingVideo: false,
+      emergencyPhone: "",
       // ラウンドレッスンの初期値：貸切/1名
       roundBookingType: isRound ? "private" : undefined,
       roundParticipantCount: isRound ? 1 : undefined,
+      requestedCourse: "",
       // インドア・場所リクエスト枠の初期値
       indoorLocationType: isIndoorFlex ? "existing" : undefined,
       existingPlanId: "",
@@ -191,8 +203,10 @@ export function ReservationForm({ schedule: rawSchedule, existingPlans = [] }: P
         agreedCancelPolicy: values.agreedCancelPolicy,
         agreedPhotoPost: values.agreedPhotoPost,
         optionSwingVideo: values.optionSwingVideo,
+        emergencyPhone: values.emergencyPhone,
         roundBookingType: isRound ? values.roundBookingType : undefined,
         roundParticipantCount: isRound ? Number(values.roundParticipantCount) : undefined,
+        requestedCourse: isRound ? values.requestedCourse : undefined,
         indoorLocationType: isIndoorFlex ? values.indoorLocationType : undefined,
         existingPlanId:
           isIndoorFlex && values.indoorLocationType === "existing"
@@ -283,7 +297,9 @@ export function ReservationForm({ schedule: rawSchedule, existingPlans = [] }: P
           </div>
           <div className="text-right shrink-0">
             <p className="text-lg font-light">¥{totalPrice.toLocaleString()}</p>
-            <p className="text-[11px] text-stone-400">税込</p>
+            <p className="text-[11px] text-stone-400">
+              {isRound ? "レッスン料金（税込）" : "税込"}
+            </p>
             {(watchSwingVideo || isRound || (isIndoorFlex && watchIndoorType === "custom")) && (
               <p className="text-[10px] text-stone-400 mt-1 leading-relaxed">
                 レッスン ¥{lessonPrice.toLocaleString()}
@@ -291,8 +307,9 @@ export function ReservationForm({ schedule: rawSchedule, existingPlans = [] }: P
               </p>
             )}
             {isRound && (
-              <p className="text-[10px] text-amber-300 mt-1">
-                ※別途プレー費あり
+              <p className="text-[10px] text-amber-300 mt-1 leading-relaxed">
+                ※プレー代（コース代・カート代等）はお客様負担<br />
+                ※お客様指定コースの場合は講師のラウンド代・食事・交通費を別途
               </p>
             )}
             {isIndoorFlex && watchIndoorType === "custom" && (
@@ -571,10 +588,10 @@ export function ReservationForm({ schedule: rawSchedule, existingPlans = [] }: P
                           <span className="text-sm font-medium text-stone-800">組み合わせ予約</span>
                         </div>
                         <p className="text-[11px] text-stone-500 leading-relaxed">
-                          他のお客様と相席。2名以上集まったら開催します。
+                          他のお客様と相席。2名以上集まったら開催します（プロ指定コース）。
                         </p>
                         <p className="text-[11px] text-stone-700 font-medium mt-1">
-                          ¥{SHARED_PRICE_PER_PERSON.toLocaleString()} / 人
+                          レッスン料金 ¥{SHARED_PRICE_PER_PERSON.toLocaleString()} / 人
                         </p>
                       </button>
                     </div>
@@ -613,7 +630,7 @@ export function ReservationForm({ schedule: rawSchedule, existingPlans = [] }: P
                           >
                             <p className="text-sm font-semibold text-stone-800">{n}名</p>
                             <p className="text-[10px] text-stone-500 mt-0.5">
-                              ¥{perPerson.toLocaleString()}/人
+                              レッスン料金<br />¥{perPerson.toLocaleString()}/人
                             </p>
                             <p className="text-[11px] font-medium text-stone-700 mt-1">
                               計 ¥{total.toLocaleString()}
@@ -623,13 +640,88 @@ export function ReservationForm({ schedule: rawSchedule, existingPlans = [] }: P
                       })}
                     </div>
                     <p className="text-[11px] text-stone-400 mt-1.5">
-                      ※同伴者の方の情報はレッスン当日にご確認させていただきます。
+                      ※プロ指定コースの場合の料金です。同伴者の方の情報はレッスン当日にご確認させていただきます。
                     </p>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             )}
+
+            {/* ラウンドレッスン専用: コースリクエスト */}
+            {isRound && (
+              <FormField
+                control={form.control}
+                name="requestedCourse"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium text-stone-700">
+                      ご希望のコース
+                      <span className="ml-2 text-[11px] font-normal text-stone-400">任意</span>
+                    </FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Flag className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-stone-400" />
+                        <Input
+                          placeholder="例：○○カントリークラブ、自宅近くのコース希望 など"
+                          className="text-sm pl-9"
+                          maxLength={200}
+                          {...field}
+                        />
+                      </div>
+                    </FormControl>
+                    <p className="text-[11px] text-stone-400 mt-1 leading-relaxed">
+                      お客様のご希望コースをお伺いします。お客様指定コースの場合は、レッスン料金に加えて講師のラウンド代・食事・交通費を別途いただきます。プロ指定コースをご希望の場合は空欄でも構いません。
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {/* ラウンド: 早朝・ナイター注意書き */}
+            {isRound && (
+              <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-100 p-4">
+                <AlertCircle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-700 leading-relaxed">
+                  <p>※早朝・ナイターでの開催の場合は別途料金をいただくことがあります。</p>
+                  <p>※悪天候により中止する場合があります。</p>
+                  <p>※講師都合で中止する場合はキャンセル料はいただきません。</p>
+                </div>
+              </div>
+            )}
+
+            {/* 緊急連絡先（必須） */}
+            <FormField
+              control={form.control}
+              name="emergencyPhone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium text-stone-700">
+                    緊急連絡先（電話番号）
+                    <span className="ml-2 text-[11px] font-medium text-red-500">必須</span>
+                  </FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-stone-400" />
+                      <Input
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        placeholder="例：090-1234-5678"
+                        className="text-sm pl-9"
+                        maxLength={20}
+                        {...field}
+                      />
+                    </div>
+                  </FormControl>
+                  <p className="text-[11px] text-stone-400 mt-1">
+                    レッスン当日のご連絡用に、当日連絡が取れる電話番号をご記入ください。
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* お悩み・質問 */}
             <FormField

@@ -13,6 +13,10 @@ export type ReservationFlexInfo = {
   requestedDuration: IndoorFlexDuration | null;
   usesTicketPack: boolean | null;
   totalPrice?: number | null;
+  /** ラウンド: お客様希望コース */
+  requestedCourse?: string | null;
+  /** 緊急連絡先電話番号 */
+  emergencyPhone?: string | null;
 };
 
 function flexInfoRows(flex: ReservationFlexInfo): string {
@@ -289,9 +293,19 @@ export function adminNewReservationEmail(
             <td style="padding:6px 0;${flex?.requestedLocation ? "color:#7c3aed;font-weight:500;" : ""}">${flex?.requestedLocation ?? schedule.location}</td>
           </tr>` : ""}
           ${flexInfoRows(flex ?? { indoorLocationType: null, requestedLocation: null, requestedDuration: null, usesTicketPack: null })}
+          ${flex?.requestedCourse ? `
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">希望コース</td>
+            <td style="padding:6px 0;color:#d97706;font-weight:500;">${flex.requestedCourse}</td>
+          </tr>` : ""}
+          ${flex?.emergencyPhone ? `
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">緊急連絡先</td>
+            <td style="padding:6px 0;font-weight:500;">${flex.emergencyPhone}</td>
+          </tr>` : ""}
           ${typeof flex?.totalPrice === "number" ? `
           <tr>
-            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">予約料金</td>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">レッスン料金</td>
             <td style="padding:6px 0;font-weight:600;">¥${flex.totalPrice.toLocaleString()}（税込）</td>
           </tr>` : ""}
           ${concern ? `

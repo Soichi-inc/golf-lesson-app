@@ -5,11 +5,13 @@
  * - 貸切予約（private）: 参加人数に応じて1人あたり料金が変わる
  *   - 1名（マンツーマン）: ¥50,000
  *   - 2名: ¥30,000/人（合計¥60,000）
- *   - 3名: ¥20,000/人（合計¥60,000）
+ *   - 3名: ¥25,000/人（合計¥75,000）
  * - 組み合わせ予約（shared）: 他のお客様と相席
  *   - ¥25,000/人（2名以上集まったら開催）
  *
- * ※ 別途プレー費（コースにより異なる）が発生
+ * ※ ここに含まれるのは「レッスン料金」のみ。
+ *    お客様自身のプレー代（コース代・カート代・キャディ代等）は別途。
+ *    お客様指定コースの場合は、講師のラウンド代・食事・交通費も別途いただきます。
  */
 
 export type RoundBookingType = "private" | "shared";
@@ -18,11 +20,14 @@ export type RoundBookingType = "private" | "shared";
 export const PRIVATE_PRICE_PER_PERSON: Record<1 | 2 | 3, number> = {
   1: 50000,
   2: 30000,
-  3: 20000,
+  3: 25000,
 };
 
 // 組み合わせ予約の1人あたり単価
 export const SHARED_PRICE_PER_PERSON = 25000;
+
+// レッスン料金最安（プラン一覧で「¥25,000〜」表示用）
+export const ROUND_MIN_LESSON_FEE_PER_PERSON = 25000;
 
 // 貸切の最大人数
 export const MAX_PRIVATE_PARTICIPANTS = 3;

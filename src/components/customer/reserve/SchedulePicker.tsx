@@ -189,6 +189,8 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
               hasSlot:
                 "[&>button]:after:absolute [&>button]:after:bottom-1 [&>button]:after:left-1/2 [&>button]:after:-translate-x-1/2 [&>button]:after:size-1 [&>button]:after:rounded-full [&>button]:after:bg-stone-700 [&>button]:relative",
             }}
+            className="w-full p-0 [--cell-size:clamp(2rem,11vw,2.75rem)] sm:[--cell-size:--spacing(8)]"
+            classNames={{ root: "w-full", month: "w-full" }}
           />
         </div>
 

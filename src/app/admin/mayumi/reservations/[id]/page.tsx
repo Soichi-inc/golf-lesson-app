@@ -9,7 +9,10 @@ import {
   Clock,
   MapPin,
   Mail,
+  Phone,
   User,
+  Users,
+  Flag,
   CheckCircle2,
   XCircle,
   Hourglass,
@@ -89,6 +92,15 @@ export default async function AdminReservationDetailPage({ params }: Props) {
               <Mail className="size-4 text-stone-400 shrink-0" />
               {rsv.user.email}
             </div>
+            {rsv.emergencyPhone && (
+              <div className="flex items-center gap-2 text-sm text-stone-600">
+                <Phone className="size-4 text-stone-400 shrink-0" />
+                <a href={`tel:${rsv.emergencyPhone}`} className="underline-offset-2 hover:underline">
+                  {rsv.emergencyPhone}
+                </a>
+                <span className="text-[11px] text-stone-400">（緊急連絡先）</span>
+              </div>
+            )}
             <Link
               href={`/admin/mayumi/customers/${rsv.userId}`}
               className="inline-block text-xs text-stone-500 underline underline-offset-2 hover:text-stone-700 transition-colors"
@@ -150,6 +162,38 @@ export default async function AdminReservationDetailPage({ params }: Props) {
                   予約形式：{rsv.requestedDuration}分・{rsv.usesTicketPack ? "4回チケット利用" : "単発予約"}
                   <br />
                   ※場所代金・ボール代金等はお客様負担
+                </p>
+              )}
+              {rsv.roundBookingType && (
+                <p className="flex items-center gap-2 text-sm text-stone-600">
+                  {rsv.roundBookingType === "private" ? (
+                    <>
+                      <User className="size-4 text-stone-400 shrink-0" />
+                      貸切予約 / {rsv.roundParticipantCount ?? 1}名
+                    </>
+                  ) : (
+                    <>
+                      <Users className="size-4 text-stone-400 shrink-0" />
+                      組み合わせ予約
+                    </>
+                  )}
+                </p>
+              )}
+              {rsv.requestedCourse && (
+                <p className="flex items-start gap-2 text-sm text-stone-600">
+                  <Flag className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span>
+                    希望コース：<span className="text-amber-700 font-medium">{rsv.requestedCourse}</span>
+                    <br />
+                    <span className="text-[11px] text-stone-400">
+                      ※お客様指定コースの場合は、講師のラウンド代・食事・交通費を別途
+                    </span>
+                  </span>
+                </p>
+              )}
+              {rsv.schedule.lessonPlan.category === "ROUND" && (
+                <p className="text-[11px] text-stone-400 leading-relaxed">
+                  ※上記はレッスン料金のみ。プレー代（コース代・カート代等）はお客様負担
                 </p>
               )}
             </div>

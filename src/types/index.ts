@@ -86,6 +86,10 @@ export type Reservation = {
   usesTicketPack: boolean | null;
   /** インドア・場所リクエスト枠（既存店舗）用: 選択された既存プランID */
   existingPlanId: string | null;
+  /** ラウンド用: お客様希望コース名（自由記述） */
+  requestedCourse: string | null;
+  /** 緊急連絡先（予約者の電話番号） */
+  emergencyPhone: string | null;
   /** 合計料金（ラウンドは人数/タイプで算出、その他はschedule.price） */
   totalPrice: number;
   cancelledAt: Date | null;

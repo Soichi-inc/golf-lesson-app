@@ -205,12 +205,20 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
                               : "組み合わせ予約（相席）"}
                           </span>
                         )}
+                        {rsv.requestedCourse && (
+                          <span className="text-amber-700">
+                            希望コース：{rsv.requestedCourse}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-medium text-stone-700">
                         ¥{(rsv.totalPrice ?? rsv.schedule.lessonPlan.price).toLocaleString()}
                       </p>
+                      {rsv.schedule.lessonPlan.category === "ROUND" && (
+                        <p className="text-[10px] text-stone-400 mt-0.5">レッスン料金</p>
+                      )}
                     </div>
                   </div>
 
