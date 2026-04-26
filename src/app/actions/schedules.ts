@@ -3,6 +3,7 @@
 import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
 import type { LessonPlan, Schedule, LessonCategory } from "@/types";
 import { requireAdmin, handleActionError } from "@/lib/auth/guard";
+import { getPlans } from "@/app/actions/plans";
 
 // ---------------------------------------------------------------------------
 // JSON保存用の型（Date は ISO文字列）
@@ -33,6 +34,8 @@ type ScheduleRecord = {
   isAvailable: boolean;
   note: string | null;
   teeOffTime: string | null;
+  /** インドア用: 場所リクエスト可能枠フラグ（既存データ互換のため optional） */
+  allowAnyLocation?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -158,6 +161,7 @@ function toSchedule(r: ScheduleRecord): Schedule {
     lessonPlan: toLessonPlan(r.lessonPlan),
     startAt: new Date(r.startAt),
     endAt: new Date(r.endAt),
+    allowAnyLocation: r.allowAnyLocation ?? false,
     createdAt: new Date(r.createdAt),
     updatedAt: new Date(r.updatedAt),
   };
@@ -177,6 +181,7 @@ function toScheduleRecord(s: Schedule): ScheduleRecord {
     lessonPlan: toLessonPlanRecord(s.lessonPlan),
     startAt: s.startAt instanceof Date ? s.startAt.toISOString() : s.startAt,
     endAt: s.endAt instanceof Date ? s.endAt.toISOString() : s.endAt,
+    allowAnyLocation: s.allowAnyLocation,
     createdAt: s.createdAt instanceof Date ? s.createdAt.toISOString() : s.createdAt,
     updatedAt: s.updatedAt instanceof Date ? s.updatedAt.toISOString() : s.updatedAt,
   };
@@ -194,13 +199,51 @@ function toLessonPlanRecord(p: LessonPlan): LessonPlanRecord {
 // Public API — レッスンプラン
 // ---------------------------------------------------------------------------
 
-/** レッスンプラン一覧を取得 */
+/**
+ * レッスンプラン一覧を取得
+ *
+ * 管理画面の「レッスンプラン管理」(plans.json) と、
+ * 旧シードの「lesson-plans.json」の両方をマージして返す。
+ * 同じ id があれば plans.json 側を優先（管理UIで編集された最新データを採用）。
+ * ONLINE カテゴリはスケジュール対象外なので除外。
+ */
 export async function getLessonPlans(): Promise<LessonPlan[]> {
-  const records = await readJsonFromStorage<LessonPlanRecord[]>(
-    LESSON_PLANS_PATH,
-    defaultLessonPlans
-  );
-  return records.map(toLessonPlan);
+  const [legacyRecords, planData] = await Promise.all([
+    readJsonFromStorage<LessonPlanRecord[]>(LESSON_PLANS_PATH, defaultLessonPlans),
+    getPlans(),
+  ]);
+
+  const fromAdmin: LessonPlan[] = planData
+    .filter((p) => p.category === "REGULAR" || p.category === "ROUND")
+    .map((p, idx) => ({
+      id: p.id,
+      name: p.name,
+      category: p.category as LessonCategory,
+      description: p.priceNote ?? p.details[0] ?? null,
+      price: p.price,
+      duration: p.duration,
+      maxAttendees: p.maxAttendees,
+      isPublished: p.isPublished,
+      displayOrder: idx,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+
+  const fromLegacy = legacyRecords.map(toLessonPlan);
+
+  const seen = new Set<string>();
+  const merged: LessonPlan[] = [];
+  for (const p of fromAdmin) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    merged.push(p);
+  }
+  for (const p of fromLegacy) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    merged.push(p);
+  }
+  return merged;
 }
 
 // ---------------------------------------------------------------------------

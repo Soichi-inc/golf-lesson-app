@@ -1,7 +1,21 @@
 import { Resend } from "resend";
 import { getAdminEmails } from "@/lib/supabase/admin";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+/**
+ * Resend クライアントの遅延初期化
+ *
+ * モジュール読み込み時に new Resend() するとビルド時の "collecting page data"
+ * フェーズで RESEND_API_KEY が無い環境（preview デプロイ等）でビルドが失敗する。
+ * 実際にメール送信が呼ばれた時点でのみインスタンス化する。
+ */
+let _resend: Resend | null = null;
+function getResend(): Resend | null {
+  if (_resend) return _resend;
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return null;
+  _resend = new Resend(key);
+  return _resend;
+}
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
 const FALLBACK_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
@@ -13,6 +27,11 @@ type SendMailOptions = {
 };
 
 export async function sendMail({ to, subject, html }: SendMailOptions) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[sendMail] RESEND_API_KEY not configured; skipping email send");
+    return { success: false, error: "メール設定が未構成です" };
+  }
   try {
     const { data, error } = await resend.emails.send({
       from: `奥村真由美ゴルフレッスン <${FROM_EMAIL}>`,

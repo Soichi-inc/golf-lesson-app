@@ -1,6 +1,16 @@
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CalendarDays, MapPin, MessageCircle } from "lucide-react";
+import {
+  CalendarDays,
+  MapPin,
+  MessageCircle,
+  Camera,
+  ShieldCheck,
+  Phone,
+  Flag,
+  Users,
+  User as UserIcon,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Reservation } from "@/types";
@@ -75,15 +85,55 @@ export function ReservationHistory({ reservations }: Props) {
                         locale: ja,
                       })}
                       &nbsp;–&nbsp;
-                      {format(new Date(rsv.schedule.endAt), "HH:mm")}
+                      {format(
+                        rsv.requestedDuration
+                          ? new Date(new Date(rsv.schedule.startAt).getTime() + rsv.requestedDuration * 60 * 1000)
+                          : new Date(rsv.schedule.endAt),
+                        "HH:mm"
+                      )}
+                      {rsv.requestedDuration && (
+                        <span className="ml-1 text-violet-600">（{rsv.requestedDuration}分）</span>
+                      )}
                     </span>
-                    {rsv.schedule.location && (
+                    {(rsv.requestedLocation || rsv.schedule.location) && (
                       <span className="flex items-center gap-1.5">
                         <MapPin className="size-3" />
-                        {rsv.schedule.location}
+                        {rsv.requestedLocation ? (
+                          <span className="text-violet-700">
+                            {rsv.indoorLocationType === "custom" ? "任意場所：" : "店舗："}
+                            {rsv.requestedLocation}
+                          </span>
+                        ) : (
+                          rsv.schedule.location
+                        )}
+                      </span>
+                    )}
+                    {rsv.indoorLocationType === "custom" && (
+                      <span className="text-violet-600 text-[11px]">
+                        場所リクエスト枠 / {rsv.usesTicketPack ? "4回チケット" : "単発"}
                       </span>
                     )}
                   </div>
+
+                  {/* ラウンド: 予約タイプ・人数・希望コース */}
+                  {rsv.roundBookingType && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-stone-500">
+                      {rsv.roundBookingType === "private" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
+                          <UserIcon className="size-3" />貸切 {rsv.roundParticipantCount ?? 1}名
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
+                          <Users className="size-3" />組み合わせ
+                        </span>
+                      )}
+                      {rsv.requestedCourse && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
+                          <Flag className="size-3" />希望コース：{rsv.requestedCourse}
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {/* お悩みメモ */}
                   {rsv.concern && (
@@ -92,12 +142,36 @@ export function ReservationHistory({ reservations }: Props) {
                       <span>{rsv.concern}</span>
                     </div>
                   )}
+
+                  {/* 緊急連絡先・同意ステータス */}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-stone-500">
+                    {rsv.emergencyPhone && (
+                      <span className="inline-flex items-center gap-1">
+                        <Phone className="size-3" />
+                        <a href={`tel:${rsv.emergencyPhone}`} className="underline-offset-2 hover:underline">
+                          {rsv.emergencyPhone}
+                        </a>
+                      </span>
+                    )}
+                    <span className="inline-flex items-center gap-1">
+                      <ShieldCheck
+                        className={`size-3 ${rsv.agreedCancelPolicy ? "text-emerald-500" : "text-stone-300"}`}
+                      />
+                      キャンセル{rsv.agreedCancelPolicy ? "同意" : "未同意"}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Camera
+                        className={`size-3 ${rsv.agreedPhotoPost ? "text-emerald-500" : "text-stone-300"}`}
+                      />
+                      SNS{rsv.agreedPhotoPost ? "同意" : "未同意"}
+                    </span>
+                  </div>
                 </div>
 
                 {/* 料金 */}
                 <div className="text-right shrink-0">
                   <p className="text-sm font-medium text-stone-700">
-                    ¥{rsv.schedule.lessonPlan.price.toLocaleString()}
+                    ¥{(rsv.totalPrice ?? rsv.schedule.lessonPlan.price).toLocaleString()}
                   </p>
                 </div>
               </div>

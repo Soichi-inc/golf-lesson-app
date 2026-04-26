@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -34,14 +35,23 @@ import {
 } from "@/components/ui/select";
 import type { LessonPlan, Schedule } from "@/types";
 
-const formSchema = z.object({
-  lessonPlanId: z.string().min(1, "レッスンプランを選択してください"),
-  date: z.string().min(1, "日付を入力してください"),
-  startTime: z.string().min(1, "開始時刻を入力してください"),
-  teeOffTime: z.string().optional(),
-  location: z.string().optional(),
-  note: z.string().optional(),
-});
+const formSchema = z
+  .object({
+    allowAnyLocation: z.boolean(),
+    lessonPlanId: z.string().optional(),
+    date: z.string().min(1, "日付を入力してください"),
+    startTime: z.string().min(1, "開始時刻を入力してください"),
+    teeOffTime: z.string().optional(),
+    location: z.string().optional(),
+    note: z.string().optional(),
+  })
+  .refine(
+    (v) => v.allowAnyLocation || (v.lessonPlanId && v.lessonPlanId.length > 0),
+    {
+      message: "レッスンプランを選択してください",
+      path: ["lessonPlanId"],
+    }
+  );
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -57,6 +67,7 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      allowAnyLocation: false,
       lessonPlanId: "",
       date: defaultDate ? format(defaultDate, "yyyy-MM-dd") : "",
       startTime: "10:00",
@@ -66,22 +77,40 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
     },
   });
 
+  const watchAllowAnyLocation = form.watch("allowAnyLocation");
+  const watchLessonPlanId = form.watch("lessonPlanId");
+  // 場所リクエスト枠ON時はインドア(REGULAR)プランの先頭を内部的に利用
+  const fallbackPlan = lessonPlans.find((p) => p.category === "REGULAR");
+  const selectedPlan = watchAllowAnyLocation
+    ? fallbackPlan
+    : lessonPlans.find((p) => p.id === watchLessonPlanId);
+
   function onSubmit(values: FormValues) {
-    const plan = lessonPlans.find((p) => p.id === values.lessonPlanId);
-    if (!plan) return;
+    const plan = values.allowAnyLocation
+      ? fallbackPlan
+      : lessonPlans.find((p) => p.id === values.lessonPlanId);
+    if (!plan) {
+      form.setError("lessonPlanId", {
+        message: values.allowAnyLocation
+          ? "インドアレッスンのプランが登録されていません。先にプランを作成してください。"
+          : "レッスンプランを選択してください",
+      });
+      return;
+    }
 
     const startAt = new Date(`${values.date}T${values.startTime}:00`);
     const endAt = new Date(startAt.getTime() + plan.duration * 60 * 1000);
 
     onCreated({
-      lessonPlanId: values.lessonPlanId,
+      lessonPlanId: plan.id,
       startAt,
       endAt,
-      location: values.location || null,
+      location: values.allowAnyLocation ? null : values.location || null,
       maxAttendees: plan.maxAttendees,
       isAvailable: true,
       note: values.note || null,
-      teeOffTime: values.teeOffTime || null,
+      teeOffTime: values.allowAnyLocation ? null : values.teeOffTime || null,
+      allowAnyLocation: !!values.allowAnyLocation,
     });
 
     form.reset();
@@ -104,31 +133,88 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* レッスンプラン */}
+            {/* 場所リクエスト枠トグル（最上部に配置） */}
             <FormField
               control={form.control}
-              name="lessonPlanId"
+              name="allowAnyLocation"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>レッスンプラン</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="プランを選択" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {lessonPlans.map((plan) => (
-                        <SelectItem key={plan.id} value={plan.id}>
-                          {plan.name}（{plan.duration}分 / ¥{plan.price.toLocaleString()}）
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
+                  <div
+                    className={`flex items-start gap-3 rounded-xl border p-3 transition-colors ${
+                      field.value
+                        ? "border-violet-300 bg-violet-50"
+                        : "border-stone-200"
+                    }`}
+                  >
+                    <Sparkles
+                      className={`size-4 mt-0.5 shrink-0 ${
+                        field.value ? "text-violet-600" : "text-stone-400"
+                      }`}
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <label
+                          htmlFor="allow-any-location-toggle"
+                          className="text-sm font-medium text-stone-700 cursor-pointer"
+                        >
+                          場所リクエスト枠として登録
+                        </label>
+                        <FormControl>
+                          <Switch
+                            id="allow-any-location-toggle"
+                            checked={!!field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </div>
+                      <p className="mt-1 text-[11px] text-stone-500 leading-relaxed">
+                        ONにすると、この枠はインドアの「場所リクエスト枠」になります。お客様は予約時に既存店舗から選ぶか、任意の場所をリクエスト可能（50分／70分・単発／4回チケット）。場所代金・ボール代金等はお客様負担です。
+                      </p>
+                    </div>
+                  </div>
                 </FormItem>
               )}
             />
+
+            {/* レッスンプラン（場所リクエスト枠ONの場合は隠す） */}
+            {!watchAllowAnyLocation && (
+              <FormField
+                control={form.control}
+                name="lessonPlanId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>レッスンプラン</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="プランを選択" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {lessonPlans.map((plan) => (
+                          <SelectItem key={plan.id} value={plan.id}>
+                            {plan.name}（{plan.duration}分 / ¥{plan.price.toLocaleString()}）
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {/* 場所リクエスト枠ON時のプラン情報表示 */}
+            {watchAllowAnyLocation && fallbackPlan && (
+              <div className="rounded-xl bg-stone-50 border border-stone-200 px-3 py-2 text-xs text-stone-500">
+                <span className="font-medium text-stone-700">プラン：</span>場所リクエスト枠（インドア・お客様が予約時に場所と時間を選択）
+              </div>
+            )}
+            {watchAllowAnyLocation && !fallbackPlan && (
+              <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+                インドアレッスンのプランが登録されていません。先にレッスンプランを1つ以上登録してください。
+              </div>
+            )}
 
             {/* 日付 */}
             <FormField
@@ -155,49 +241,52 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
                   <FormControl>
                     <Input type="time" {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* ティーオフ時刻（ラウンドの場合のみ） */}
-            {(() => {
-              const selectedPlan = lessonPlans.find((p) => p.id === form.watch("lessonPlanId"));
-              if (selectedPlan?.category !== "ROUND") return null;
-              return (
-                <FormField
-                  control={form.control}
-                  name="teeOffTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ティーオフ時刻</FormLabel>
-                      <FormControl>
-                        <Input type="time" placeholder="例: 08:30" {...field} />
-                      </FormControl>
-                      <p className="text-[11px] text-stone-400">
-                        ゴルフ場のスタート時刻を入力してください
-                      </p>
-                      <FormMessage />
-                    </FormItem>
+                  {watchAllowAnyLocation && (
+                    <p className="text-[11px] text-violet-600 mt-1">
+                      ※1時間刻みでスロットを複数作成してください。お客様が50分／70分を選択します。
+                    </p>
                   )}
-                />
-              );
-            })()}
-
-            {/* 場所 */}
-            <FormField
-              control={form.control}
-              name="location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>実施場所（任意）</FormLabel>
-                  <FormControl>
-                    <Input placeholder="例: ○○ゴルフクラブ 打席" {...field} />
-                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            {/* ティーオフ時刻（ラウンドの場合のみ・場所リクエスト枠OFF時のみ） */}
+            {!watchAllowAnyLocation && selectedPlan?.category === "ROUND" && (
+              <FormField
+                control={form.control}
+                name="teeOffTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ティーオフ時刻</FormLabel>
+                    <FormControl>
+                      <Input type="time" placeholder="例: 08:30" {...field} />
+                    </FormControl>
+                    <p className="text-[11px] text-stone-400">
+                      ゴルフ場のスタート時刻を入力してください
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {/* 場所（場所リクエスト枠OFF時のみ） */}
+            {!watchAllowAnyLocation && (
+              <FormField
+                control={form.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>実施場所（任意）</FormLabel>
+                    <FormControl>
+                      <Input placeholder="例: ○○ゴルフクラブ 打席" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* メモ */}
             <FormField
@@ -227,7 +316,11 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
               >
                 キャンセル
               </Button>
-              <Button type="submit" className="bg-stone-800 hover:bg-stone-700">
+              <Button
+                type="submit"
+                className="bg-stone-800 hover:bg-stone-700"
+                disabled={watchAllowAnyLocation && !fallbackPlan}
+              >
                 登録する
               </Button>
             </DialogFooter>

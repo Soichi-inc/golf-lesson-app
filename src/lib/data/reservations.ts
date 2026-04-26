@@ -10,7 +10,13 @@
  * - PII を返すため、クライアントに公開する関数ではない
  */
 import "server-only";
-import type { Reservation, ReservationStatus, RoundBookingType } from "@/types";
+import type {
+  IndoorFlexDuration,
+  IndoorLocationType,
+  Reservation,
+  ReservationStatus,
+  RoundBookingType,
+} from "@/types";
 import { getSchedules } from "@/app/actions/schedules";
 import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
 
@@ -30,6 +36,16 @@ export type ReservationRecord = {
   /** ラウンドレッスン用（他カテゴリではnull） */
   roundBookingType: RoundBookingType | null;
   roundParticipantCount: number | null;
+  /** インドア・場所リクエスト枠用（互換のため optional） */
+  indoorLocationType?: IndoorLocationType | null;
+  requestedLocation?: string | null;
+  requestedDuration?: IndoorFlexDuration | null;
+  usesTicketPack?: boolean | null;
+  existingPlanId?: string | null;
+  /** ラウンド: お客様希望コース */
+  requestedCourse?: string | null;
+  /** 緊急連絡先電話番号 */
+  emergencyPhone?: string | null;
   /** 予約時に確定した合計料金 */
   totalPrice: number | null;
   cancelledAt: string | null;
@@ -94,6 +110,7 @@ export async function getAllReservations(): Promise<Reservation[]> {
         isAvailable: false,
         note: null,
         teeOffTime: null,
+        allowAnyLocation: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -104,6 +121,13 @@ export async function getAllReservations(): Promise<Reservation[]> {
       optionSwingVideo: r.optionSwingVideo ?? false,
       roundBookingType: r.roundBookingType ?? null,
       roundParticipantCount: r.roundParticipantCount ?? null,
+      indoorLocationType: r.indoorLocationType ?? null,
+      requestedLocation: r.requestedLocation ?? null,
+      requestedDuration: r.requestedDuration ?? null,
+      usesTicketPack: r.usesTicketPack ?? null,
+      existingPlanId: r.existingPlanId ?? null,
+      requestedCourse: r.requestedCourse ?? null,
+      emergencyPhone: r.emergencyPhone ?? null,
       totalPrice: r.totalPrice ?? (schedule?.lessonPlan.price ?? 0),
       cancelledAt: r.cancelledAt ? new Date(r.cancelledAt) : null,
       cancelReason: r.cancelReason,
@@ -154,6 +178,13 @@ export async function insertReservationRecord(input: {
   optionSwingVideo?: boolean;
   roundBookingType?: RoundBookingType | null;
   roundParticipantCount?: number | null;
+  indoorLocationType?: IndoorLocationType | null;
+  requestedLocation?: string | null;
+  requestedDuration?: IndoorFlexDuration | null;
+  usesTicketPack?: boolean | null;
+  existingPlanId?: string | null;
+  requestedCourse?: string | null;
+  emergencyPhone?: string | null;
   totalPrice: number;
 }): Promise<{ success: boolean; reservationId?: string; error?: string }> {
   const records = await readReservationRecords();
@@ -173,6 +204,13 @@ export async function insertReservationRecord(input: {
     optionSwingVideo: input.optionSwingVideo ?? false,
     roundBookingType: input.roundBookingType ?? null,
     roundParticipantCount: input.roundParticipantCount ?? null,
+    indoorLocationType: input.indoorLocationType ?? null,
+    requestedLocation: input.requestedLocation ?? null,
+    requestedDuration: input.requestedDuration ?? null,
+    usesTicketPack: input.usesTicketPack ?? null,
+    existingPlanId: input.existingPlanId ?? null,
+    requestedCourse: input.requestedCourse ?? null,
+    emergencyPhone: input.emergencyPhone ?? null,
     totalPrice: input.totalPrice,
     cancelledAt: null,
     cancelReason: null,

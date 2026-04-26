@@ -117,6 +117,14 @@ function ScheduleCard({
                   ? "通常"
                   : "ラウンド"}
               </Badge>
+              {schedule.allowAnyLocation && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] text-violet-700 bg-violet-50 border-violet-200"
+                >
+                  場所リクエスト可
+                </Badge>
+              )}
             </div>
 
             <p className="font-medium text-stone-800 text-sm mb-1">

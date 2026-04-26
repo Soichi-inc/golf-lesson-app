@@ -189,6 +189,8 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
               hasSlot:
                 "[&>button]:after:absolute [&>button]:after:bottom-1 [&>button]:after:left-1/2 [&>button]:after:-translate-x-1/2 [&>button]:after:size-1 [&>button]:after:rounded-full [&>button]:after:bg-stone-700 [&>button]:relative",
             }}
+            className="w-full p-0 [--cell-size:clamp(2rem,11vw,2.75rem)] sm:[--cell-size:--spacing(8)]"
+            classNames={{ root: "w-full", month: "w-full" }}
           />
         </div>
 
@@ -251,6 +253,14 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
                               >
                                 {isRound ? "ラウンド" : "インドア"}
                               </Badge>
+                              {slot.allowAnyLocation && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] border-violet-200 bg-violet-50 text-violet-700"
+                                >
+                                  場所リクエスト可
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-xs text-stone-600 mb-1">{slot.lessonPlan.name}</p>
                             {slot.teeOffTime && (
@@ -259,24 +269,39 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
                               </p>
                             )}
                             <div className="flex flex-wrap gap-3 text-[11px] text-stone-400">
-                              {slot.location && (
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="size-3" />{slot.location}
+                              {slot.allowAnyLocation ? (
+                                <span className="flex items-center gap-1 text-violet-600">
+                                  <MapPin className="size-3" />場所は予約時にお選びいただけます
                                 </span>
+                              ) : (
+                                slot.location && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="size-3" />{slot.location}
+                                  </span>
+                                )
                               )}
                               <span className="flex items-center gap-1">
                                 <Users className="size-3" />定員{slot.maxAttendees}名
                               </span>
                               <span className="flex items-center gap-1">
-                                <Clock className="size-3" />{slot.lessonPlan.duration}分
+                                <Clock className="size-3" />
+                                {slot.allowAnyLocation
+                                  ? "50/70分"
+                                  : `${slot.lessonPlan.duration}分`}
                               </span>
                             </div>
                             {slot.note && (
                               <p className="mt-1.5 text-[11px] text-stone-400 italic">{slot.note}</p>
                             )}
                           </div>
-                          <p className="text-sm font-medium text-stone-700 shrink-0">
-                            ¥{slot.lessonPlan.price.toLocaleString()}
+                          <p className="text-sm font-medium text-stone-700 shrink-0 text-right">
+                            {slot.allowAnyLocation ? (
+                              <span className="text-xs text-violet-600">
+                                予約時に確定
+                              </span>
+                            ) : (
+                              `¥${slot.lessonPlan.price.toLocaleString()}`
+                            )}
                           </p>
                         </div>
                       </button>

@@ -167,12 +167,35 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
                         </span>
                         <span className="flex items-center gap-1.5">
                           <Clock className="size-3 shrink-0" />
-                          {format(rsv.schedule.startAt, "HH:mm")} – {format(rsv.schedule.endAt, "HH:mm")}
+                          {format(rsv.schedule.startAt, "HH:mm")} – {format(
+                            rsv.requestedDuration
+                              ? new Date(new Date(rsv.schedule.startAt).getTime() + rsv.requestedDuration * 60 * 1000)
+                              : rsv.schedule.endAt,
+                            "HH:mm"
+                          )}
+                          {rsv.requestedDuration && (
+                            <span className="ml-1 text-violet-600">
+                              （{rsv.requestedDuration}分リクエスト）
+                            </span>
+                          )}
                         </span>
-                        {rsv.schedule.location && (
+                        {(rsv.requestedLocation || rsv.schedule.location) && (
                           <span className="flex items-center gap-1.5">
                             <MapPin className="size-3 shrink-0" />
-                            {rsv.schedule.location}
+                            {rsv.requestedLocation ? (
+                              <span className="text-violet-700">
+                                {rsv.indoorLocationType === "custom" ? "任意場所：" : "店舗："}
+                                {rsv.requestedLocation}
+                              </span>
+                            ) : (
+                              rsv.schedule.location
+                            )}
+                          </span>
+                        )}
+                        {rsv.indoorLocationType === "custom" && (
+                          <span className="text-violet-600 text-[11px]">
+                            場所リクエスト枠 / {rsv.requestedDuration ?? "-"}分 /{" "}
+                            {rsv.usesTicketPack ? "4回チケット利用" : "単発"}
                           </span>
                         )}
                         {rsv.roundBookingType && (
@@ -182,12 +205,20 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
                               : "組み合わせ予約（相席）"}
                           </span>
                         )}
+                        {rsv.requestedCourse && (
+                          <span className="text-amber-700">
+                            希望コース：{rsv.requestedCourse}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-medium text-stone-700">
                         ¥{(rsv.totalPrice ?? rsv.schedule.lessonPlan.price).toLocaleString()}
                       </p>
+                      {rsv.schedule.lessonPlan.category === "ROUND" && (
+                        <p className="text-[10px] text-stone-400 mt-0.5">レッスン料金</p>
+                      )}
                     </div>
                   </div>
 

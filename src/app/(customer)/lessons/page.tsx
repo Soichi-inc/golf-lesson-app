@@ -17,6 +17,8 @@ type Plan = {
   tagLabel: string;
   description: string;
   price: number;
+  /** 価格に「〜」を付けて下限であることを示す */
+  priceFrom?: boolean;
   priceNote?: string;
   duration: number;
   maxAttendees: number;
@@ -51,15 +53,17 @@ const plans: Plan[] = [
     category: "ROUND",
     tagLabel: "ラウンドレッスン",
     description: "コースを回りながら実戦的なマネジメントを指導。関東圏内対応。",
-    price: 17000,
-    priceNote: "1名あたり（3名の場合）",
+    price: 25000,
+    priceFrom: true,
+    priceNote: "レッスン料金 1名あたり",
     duration: 240,
     maxAttendees: 3,
     details: [
-      "1名 ¥17,000（3名の場合）",
-      "1組 ¥50,000（ご友人・お知り合い3名）",
-      "別途ラウンド費（プロ料金含む）",
-      "ラウンド前後フィードバック・動画撮影あり",
+      "貸切予約：1名 ¥50,000 / 2名 ¥30,000・人 / 3名 ¥25,000・人",
+      "組み合わせ予約：¥25,000 / 人（2名以上で成立）",
+      "上記はレッスン料金。プレー代（コース代等）はお客様負担",
+      "お客様指定コースの場合は、講師のラウンド代・食事・交通費を別途",
+      "早朝・ナイターは別途料金をいただくことがあります",
     ],
     highlights: [
       "コースマネジメントを実践で学ぶ",
@@ -117,7 +121,10 @@ function PlanCard({ plan }: { plan: Plan }) {
             <h3 className="text-lg font-semibold text-stone-800">{plan.name}</h3>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-2xl font-light text-stone-800">¥{plan.price.toLocaleString()}</p>
+            <p className="text-2xl font-light text-stone-800">
+              ¥{plan.price.toLocaleString()}
+              {plan.priceFrom && <span className="text-base text-stone-500">〜</span>}
+            </p>
             <p className="text-[11px] text-stone-400">{plan.priceNote ?? "税込"}</p>
           </div>
         </div>

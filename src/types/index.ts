@@ -47,12 +47,19 @@ export type Schedule = {
   note: string | null;
   /** ラウンドレッスン用: ティーオフ時刻（例: "8:30"） */
   teeOffTime: string | null;
+  /** インドア用: 場所リクエスト可能枠（既存店舗選択 or 任意場所リクエスト） */
+  allowAnyLocation: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
 
 // ------------------------------------------------------------------ Reservation
 export type RoundBookingType = "private" | "shared";
+
+/** インドア・場所リクエスト枠の場所タイプ */
+export type IndoorLocationType = "existing" | "custom";
+/** インドア・場所リクエスト枠の希望レッスン時間 */
+export type IndoorFlexDuration = 50 | 70;
 
 export type Reservation = {
   id: string;
@@ -69,6 +76,20 @@ export type Reservation = {
   roundBookingType: RoundBookingType | null;
   /** ラウンドレッスン用: 参加人数 (privateのみ意味あり) */
   roundParticipantCount: number | null;
+  /** インドア・場所リクエスト枠用: 場所選択タイプ */
+  indoorLocationType: IndoorLocationType | null;
+  /** インドア・場所リクエスト枠用: お客様希望場所（既存店舗名 or 任意のテキスト） */
+  requestedLocation: string | null;
+  /** インドア・場所リクエスト枠用: 希望レッスン時間（分） */
+  requestedDuration: IndoorFlexDuration | null;
+  /** インドア・場所リクエスト枠用: 4回チケット料金で計算するか */
+  usesTicketPack: boolean | null;
+  /** インドア・場所リクエスト枠（既存店舗）用: 選択された既存プランID */
+  existingPlanId: string | null;
+  /** ラウンド用: お客様希望コース名（自由記述） */
+  requestedCourse: string | null;
+  /** 緊急連絡先（予約者の電話番号） */
+  emergencyPhone: string | null;
   /** 合計料金（ラウンドは人数/タイプで算出、その他はschedule.price） */
   totalPrice: number;
   cancelledAt: Date | null;

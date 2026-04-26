@@ -136,12 +136,39 @@ export function AdminReservationManager({ reservations: initial }: Props) {
               <span className="flex items-center gap-1.5">
                 <CalendarDays className="size-3 shrink-0" />
                 {format(new Date(rsv.schedule.startAt), "yyyy年M月d日（E） HH:mm", { locale: ja })} –{" "}
-                {format(new Date(rsv.schedule.endAt), "HH:mm")}
+                {(() => {
+                  // 場所リクエスト・任意場所で 70分指定の場合は実際の終了時刻を表示
+                  const start = new Date(rsv.schedule.startAt);
+                  const end = rsv.requestedDuration
+                    ? new Date(start.getTime() + rsv.requestedDuration * 60 * 1000)
+                    : new Date(rsv.schedule.endAt);
+                  return format(end, "HH:mm");
+                })()}
+                {rsv.requestedDuration && (
+                  <span className="text-violet-700 font-medium">
+                    （{rsv.requestedDuration}分リクエスト）
+                  </span>
+                )}
               </span>
-              {rsv.schedule.location && (
+              {(rsv.requestedLocation || rsv.schedule.location) && (
                 <span className="flex items-center gap-1.5">
                   <MapPin className="size-3 shrink-0" />
-                  {rsv.schedule.location}
+                  {rsv.requestedLocation ? (
+                    <>
+                      <span className="text-violet-700 font-medium">
+                        {rsv.indoorLocationType === "custom" ? "任意場所" : "店舗"}：
+                      </span>
+                      {rsv.requestedLocation}
+                    </>
+                  ) : (
+                    rsv.schedule.location
+                  )}
+                </span>
+              )}
+              {rsv.indoorLocationType === "custom" && (
+                <span className="text-violet-700 font-medium">
+                  場所リクエスト枠（任意場所） / {rsv.requestedDuration}分 /{" "}
+                  {rsv.usesTicketPack ? "4回チケット利用" : "単発"}
                 </span>
               )}
               {rsv.roundBookingType && (
