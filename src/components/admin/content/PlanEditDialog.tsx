@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -37,11 +38,14 @@ const formSchema = z.object({
   category: z.enum(["REGULAR", "ROUND", "ONLINE"]),
   tagLabel: z.string().min(1, "タグ名を入力してください"),
   price: z.number().min(0, "料金は0以上で入力してください"),
+  priceFrom: z.boolean(),
   priceNote: z.string().optional(),
   duration: z.number().min(1, "所要時間を入力してください"),
   maxAttendees: z.number().min(1, "定員を入力してください"),
   isPublished: z.boolean(),
-  details: z.array(z.object({ value: z.string().min(1, "内容を入力してください") })),
+  description: z.string().optional(),
+  highlights: z.array(z.object({ value: z.string() })),
+  details: z.array(z.object({ value: z.string() })),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -65,10 +69,13 @@ export function PlanEditDialog({ open, onOpenChange, plan, onSave }: Props) {
           category: plan.category,
           tagLabel: plan.tagLabel,
           price: plan.price,
+          priceFrom: !!plan.priceFrom,
           priceNote: plan.priceNote || "",
           duration: plan.duration,
           maxAttendees: plan.maxAttendees,
           isPublished: plan.isPublished,
+          description: plan.description || "",
+          highlights: (plan.highlights ?? []).map((v) => ({ value: v })),
           details: plan.details.map((v) => ({ value: v })),
         }
       : {
@@ -76,29 +83,43 @@ export function PlanEditDialog({ open, onOpenChange, plan, onSave }: Props) {
           category: "REGULAR" as const,
           tagLabel: "インドア",
           price: 0,
+          priceFrom: false,
           priceNote: "",
           duration: 50,
           maxAttendees: 1,
           isPublished: true,
+          description: "",
+          highlights: [],
           details: [{ value: "" }],
         },
   });
 
   const detailFields = useFieldArray({ control: form.control, name: "details" });
+  const highlightFields = useFieldArray({ control: form.control, name: "highlights" });
 
   async function onSubmit(values: FormValues) {
     setSaving(true);
+    const cleanedHighlights = values.highlights
+      .map((h) => h.value.trim())
+      .filter((v) => v.length > 0);
+    const cleanedDetails = values.details
+      .map((d) => d.value.trim())
+      .filter((v) => v.length > 0);
+
     const planData: PlanData = {
       id: plan?.id || `plan-${Date.now()}`,
       name: values.name,
       category: values.category,
       tagLabel: values.tagLabel,
       price: values.price,
+      priceFrom: values.priceFrom || undefined,
       priceNote: values.priceNote || undefined,
       duration: values.duration,
       maxAttendees: values.maxAttendees,
       isPublished: values.isPublished,
-      details: values.details.map((d) => d.value),
+      description: values.description?.trim() || undefined,
+      highlights: cleanedHighlights.length > 0 ? cleanedHighlights : undefined,
+      details: cleanedDetails,
     };
     onSave(planData);
     setSaving(false);
@@ -118,7 +139,7 @@ export function PlanEditDialog({ open, onOpenChange, plan, onSave }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-medium">
             {isEditing ? "プランの編集" : "プランの追加"}
@@ -204,6 +225,27 @@ export function PlanEditDialog({ open, onOpenChange, plan, onSave }: Props) {
               />
             </div>
 
+            {/* 料金が下限であるか（〜表示） */}
+            <FormField
+              control={form.control}
+              name="priceFrom"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-3 rounded-xl border border-stone-200 p-3">
+                  <FormControl>
+                    <Switch checked={!!field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div className="flex-1">
+                    <FormLabel className="!mt-0 text-sm text-stone-700 block">
+                      料金に「〜」を表示
+                    </FormLabel>
+                    <p className="text-[11px] text-stone-400 mt-0.5">
+                      下限料金を示したいとき（例：¥25,000〜）にONにします
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
+
             <div className="grid grid-cols-2 gap-3">
               <FormField
                 control={form.control}
@@ -244,6 +286,67 @@ export function PlanEditDialog({ open, onOpenChange, plan, onSave }: Props) {
                 </FormItem>
               )}
             />
+
+            {/* 説明 */}
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>説明文（任意）</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="例: コースを回りながら実戦的なマネジメントを指導。関東圏内対応。"
+                      rows={3}
+                      className="resize-none"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* ハイライト */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <FormLabel>ハイライト（チェックマーク付き表示・任意）</FormLabel>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 text-xs h-7"
+                  onClick={() => highlightFields.append({ value: "" })}
+                >
+                  <Plus className="size-3" /> 追加
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {highlightFields.fields.map((field, index) => (
+                  <div key={field.id} className="flex gap-2">
+                    <FormField
+                      control={form.control}
+                      name={`highlights.${index}.value`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormControl><Input placeholder="例: コースマネジメントを実践で学ぶ" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-9 text-stone-400 hover:text-red-500 shrink-0"
+                      onClick={() => highlightFields.remove(index)}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {/* 料金詳細 */}
             <div>

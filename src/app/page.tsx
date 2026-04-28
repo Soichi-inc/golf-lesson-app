@@ -6,23 +6,20 @@ import { CustomerHeader } from "@/components/customer/Header";
 import { CustomerFooter } from "@/components/customer/Footer";
 import { HeroVideo } from "@/components/customer/HeroVideo";
 import { AnimatedSection } from "@/components/customer/AnimatedSection";
-import type { LessonPlan } from "@/types";
+import { getPlans, type PlanData } from "@/app/actions/plans";
+import { getProfile } from "@/app/actions/profile";
 
 export const metadata: Metadata = {
   title: "奥村真由美ゴルフレッスン | LPGA・TPI認定プロによる個人指導",
   description: "LPGA会員・TPI認定インストラクター奥村真由美プロによる個人ゴルフレッスン。横浜・東京を拠点に、身体の特性に合ったスイング作りをサポートします。",
 };
 
+export const dynamic = "force-dynamic";
+
 const qualifications = [
   { label: "LPGA（全米女子プロゴルフ協会）メンバー" },
   { label: "Class A ティーチングプロ" },
   { label: "TPI（Titleist Performance Institute）Level 1" },
-];
-
-const locations = [
-  { name: "golf next24 中川店", area: "横浜", note: "メインスタジオ / ok on golf" },
-  { name: "the golf house 京橋八丁堀", area: "東京", note: "メインスタジオ / TrackMan 4" },
-  { name: "PGL パーソナルゴルフラウンジ", area: "東京", note: "TrackMan 4" },
 ];
 
 const features = [
@@ -46,65 +43,7 @@ const features = [
   },
 ];
 
-const lessonPlans: (LessonPlan & { details: string[] })[] = [
-  {
-    id: "plan-private-50",
-    name: "プライベートレッスン 50分",
-    category: "REGULAR",
-    description: "マンツーマンで丁寧に指導。SPORTS BOX AI分析も対応します。",
-    price: 13000,
-    duration: 50,
-    maxAttendees: 1,
-    isPublished: true,
-    displayOrder: 0,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    details: [
-      "golf next24　+¥2,200（80分）",
-      "the golf house　+¥5,500（60分）",
-      "PGL パーソナルゴルフラウンジ　+¥4,400（55分）",
-    ],
-  },
-  {
-    id: "plan-round",
-    name: "ラウンドレッスン",
-    category: "ROUND",
-    description: "コースを回りながら実戦的なマネジメントを指導。関東圏内対応。",
-    price: 17000,
-    duration: 240,
-    maxAttendees: 3,
-    isPublished: true,
-    displayOrder: 1,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    details: [
-      "1名 ¥17,000（3名の場合）",
-      "1組 ¥50,000（ご友人・お知り合い3名）",
-      "別途ラウンド費（プロ料金含む）",
-      "ラウンド前後フィードバック・動画撮影あり",
-    ],
-  },
-  {
-    id: "plan-online",
-    name: "オンラインレッスン",
-    category: "REGULAR",
-    description: "スマホ1台で受講できるオンラインレッスン。フィードバック付き。",
-    price: 3000,
-    duration: 25,
-    maxAttendees: 1,
-    isPublished: true,
-    displayOrder: 2,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    details: [
-      "25分 ¥3,000（フィードバックあり）",
-      "体験レッスン 25分 ¥1,000",
-      "お支払い：カード決済（Square）・現金・PayPay",
-    ],
-  },
-];
-
-function LessonPlanCard({ plan, index }: { plan: typeof lessonPlans[number]; index: number }) {
+function LessonPlanCard({ plan, index }: { plan: PlanData; index: number }) {
   const isRound = plan.category === "ROUND";
   return (
     <AnimatedSection delay={index * 0.15} className="group">
@@ -161,7 +100,11 @@ function LessonPlanCard({ plan, index }: { plan: typeof lessonPlans[number]; ind
   );
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [plans, profile] = await Promise.all([getPlans(), getProfile()]);
+  const lessonPlans = plans.filter((p) => p.isPublished);
+  const locations = profile.locations ?? [];
+
   return (
     <div className="flex min-h-screen flex-col bg-stone-50">
       <CustomerHeader />
@@ -311,20 +254,22 @@ export default function HomePage() {
                 </div>
 
                 {/* Locations */}
-                <div className="mb-10">
-                  <p className="mb-4 text-[10px] font-medium tracking-[0.4em] text-white/30 uppercase">Locations — Yokohama / Tokyo</p>
-                  <ul className="flex flex-col gap-4">
-                    {locations.map(({ name, area, note }) => (
-                      <li key={name} className="flex items-start gap-3 text-sm">
-                        <MapPin className="size-4 text-white/30 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="font-medium text-white/80">{name}</p>
-                          <p className="text-xs text-white/40">{area} — {note}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                {locations.length > 0 && (
+                  <div className="mb-10">
+                    <p className="mb-4 text-[10px] font-medium tracking-[0.4em] text-white/30 uppercase">Locations — Yokohama / Tokyo</p>
+                    <ul className="flex flex-col gap-4">
+                      {locations.map(({ name, area }) => (
+                        <li key={name} className="flex items-start gap-3 text-sm">
+                          <MapPin className="size-4 text-white/30 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="font-medium text-white/80">{name}</p>
+                            <p className="text-xs text-white/40">{area}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <a
                   href="https://www.instagram.com/mayumi_gf"
@@ -348,7 +293,7 @@ export default function HomePage() {
             <AnimatedSection>
               <p className="mb-3 text-center text-[10px] font-medium tracking-[0.5em] text-[#b8945f] uppercase">Lesson Plan</p>
               <h2 className="mb-4 text-center text-3xl font-extralight tracking-wider text-stone-800 sm:text-4xl">レッスンプラン</h2>
-              <p className="mb-6 text-center text-sm font-light text-stone-400">お支払い：当日会場にて カード決済（Square）/ 現金 / PayPay</p>
+              <p className="mb-6 text-center text-sm font-light text-stone-400">お支払い：当日会場にて カード決済（Square）/ 現金 / PayPay / 銀行振込</p>
               <div className="mx-auto mb-16 h-[1px] w-12 bg-[#b8945f]/40 sm:mb-20" />
             </AnimatedSection>
 

@@ -126,7 +126,7 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-medium">空き枠の登録</DialogTitle>
         </DialogHeader>

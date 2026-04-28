@@ -40,7 +40,6 @@ const defaultProfile: ProfileData = {
   locations: [
     { name: "golf next24 中川店", area: "横浜" },
     { name: "the golf house 京橋八丁堀", area: "東京" },
-    { name: "PGL パーソナルゴルフラウンジ", area: "東京" },
   ],
 };
 
