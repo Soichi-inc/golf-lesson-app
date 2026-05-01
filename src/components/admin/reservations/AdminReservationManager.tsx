@@ -123,9 +123,17 @@ export function AdminReservationManager({ reservations: initial }: Props) {
                 <p className="font-medium text-stone-800 text-sm">{rsv.schedule.lessonPlan.name}</p>
                 <Badge variant="outline" className={`text-[10px] ${s.className}`}>{s.label}</Badge>
               </div>
-              <p className="text-sm font-medium text-stone-600">
-                ¥{(rsv.totalPrice ?? rsv.schedule.lessonPlan.price).toLocaleString()}
-              </p>
+              <div className="text-right shrink-0">
+                <p className="text-sm font-medium text-stone-600">
+                  ¥{(rsv.totalPrice ?? rsv.schedule.lessonPlan.price).toLocaleString()}
+                </p>
+                {rsv.optionSwingVideo && (
+                  <p className="text-[10px] text-stone-400 mt-0.5">
+                    レッスン ¥{((rsv.totalPrice ?? rsv.schedule.lessonPlan.price) - 3000).toLocaleString()}
+                    {" + "}撮影 ¥3,000
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-col gap-1 text-xs text-stone-500 mb-2">

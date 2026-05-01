@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,7 +29,6 @@ const registerSchema = z
 type RegisterForm = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -52,6 +50,10 @@ export default function RegisterPage() {
       email: data.email,
       password: data.password,
       options: {
+        emailRedirectTo:
+          typeof window !== "undefined"
+            ? `${window.location.origin}/auth/callback`
+            : undefined,
         data: {
           full_name: data.name,
         },
@@ -59,11 +61,52 @@ export default function RegisterPage() {
     });
 
     if (error) {
-      if (error.message.includes("already registered") || error.message.includes("already exists")) {
-        setServerError("このメールアドレスはすでに登録されています");
-      } else {
-        setServerError("登録に失敗しました。しばらくしてからお試しください");
+      // Supabase の AuthError には code / status / message が含まれる
+      const code = (error as { code?: string }).code;
+      const status = error.status;
+      const msg = error.message || "";
+
+      // 既存メアド
+      if (
+        code === "user_already_exists" ||
+        msg.includes("already registered") ||
+        msg.includes("already exists")
+      ) {
+        setServerError("このメールアドレスはすでに登録されています。ログインからお進みください。");
+        return;
       }
+      // メール送信レート制限
+      if (code === "over_email_send_rate_limit" || status === 429) {
+        setServerError(
+          "メール送信が集中しています。1〜2分ほど経ってから再度お試しください。"
+        );
+        return;
+      }
+      // パスワード強度不足
+      if (code === "weak_password" || msg.toLowerCase().includes("password")) {
+        setServerError(
+          "パスワードが弱いです。英数字・記号を組み合わせ8文字以上でお試しください。"
+        );
+        return;
+      }
+      // メール形式不正
+      if (code === "email_address_invalid" || msg.toLowerCase().includes("email")) {
+        setServerError("メールアドレスの形式が正しくない、または受け付けられないメールです。");
+        return;
+      }
+      // 新規登録停止中
+      if (code === "signup_disabled") {
+        setServerError("現在、新規登録を停止しています。お手数ですが管理者までご連絡ください。");
+        return;
+      }
+
+      // それ以外は元のメッセージも表示してデバッグしやすく
+      console.error("[register] supabase error:", error);
+      setServerError(
+        `登録に失敗しました（${code ?? status ?? "不明"}）。${
+          msg ? "詳細: " + msg : "しばらくしてから再度お試しください。"
+        }`
+      );
       return;
     }
 

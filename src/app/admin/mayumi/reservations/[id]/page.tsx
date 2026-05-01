@@ -130,6 +130,12 @@ export default async function AdminReservationDetailPage({ params }: Props) {
               <p className="text-lg font-light text-stone-700 mt-1">
                 ¥{(rsv.totalPrice ?? schedule.lessonPlan.price).toLocaleString()} <span className="text-xs text-stone-400">税込</span>
               </p>
+              {rsv.optionSwingVideo && (
+                <p className="text-[11px] text-stone-400 mt-0.5">
+                  レッスン ¥{((rsv.totalPrice ?? schedule.lessonPlan.price) - 3000).toLocaleString()}
+                  {" + "}撮影オプション ¥3,000
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <p className="flex items-center gap-2 text-sm text-stone-600">

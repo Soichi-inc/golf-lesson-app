@@ -216,7 +216,14 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
                       <p className="text-sm font-medium text-stone-700">
                         ¥{(rsv.totalPrice ?? rsv.schedule.lessonPlan.price).toLocaleString()}
                       </p>
-                      {rsv.schedule.lessonPlan.category === "ROUND" && (
+                      {rsv.optionSwingVideo && (
+                        <p className="text-[10px] text-stone-400 mt-0.5 leading-tight">
+                          レッスン ¥{((rsv.totalPrice ?? rsv.schedule.lessonPlan.price) - 3000).toLocaleString()}
+                          <br />
+                          + 撮影 ¥3,000
+                        </p>
+                      )}
+                      {rsv.schedule.lessonPlan.category === "ROUND" && !rsv.optionSwingVideo && (
                         <p className="text-[10px] text-stone-400 mt-0.5">レッスン料金</p>
                       )}
                     </div>
