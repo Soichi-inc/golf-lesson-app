@@ -45,6 +45,8 @@ const features = [
 
 function LessonPlanCard({ plan, index }: { plan: PlanData; index: number }) {
   const isRound = plan.category === "ROUND";
+  const isOnline = plan.category === "ONLINE" || plan.id === "plan-online";
+  const isIndoor = plan.category === "REGULAR" && !isOnline;
   return (
     <AnimatedSection delay={index * 0.15} className="group">
       <div className="relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-stone-200/60 transition-all duration-500 hover:shadow-xl hover:shadow-stone-200/50 hover:-translate-y-1">
@@ -53,14 +55,17 @@ function LessonPlanCard({ plan, index }: { plan: PlanData; index: number }) {
         <div className="p-7 sm:p-8">
           <div className="mb-5 flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <span className={`mb-2 inline-block text-[10px] font-medium tracking-widest uppercase ${isRound ? "text-amber-600" : plan.id === "plan-online" ? "text-blue-600" : "text-stone-400"}`}>
-                {isRound ? "Round Lesson" : plan.id === "plan-online" ? "Online" : "Private Lesson"}
+              <span className={`mb-2 inline-block text-[10px] font-medium tracking-widest uppercase ${isRound ? "text-amber-600" : isOnline ? "text-blue-600" : "text-stone-400"}`}>
+                {isRound ? "Round Lesson" : isOnline ? "Online Lesson" : "Indoor Lesson"}
               </span>
               <h3 className="text-lg font-medium tracking-wide text-stone-800">{plan.name}</h3>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-2xl font-extralight text-stone-800">¥{plan.price.toLocaleString()}</p>
-              <p className="text-[10px] tracking-wider text-stone-400">税込</p>
+              <p className="text-2xl font-extralight text-stone-800">
+                ¥{plan.price.toLocaleString()}
+                {plan.priceFrom && <span className="text-base text-stone-500">〜</span>}
+              </p>
+              <p className="text-[10px] tracking-wider text-stone-400">{plan.priceNote ?? "税込"}</p>
             </div>
           </div>
           {plan.description && (
@@ -92,7 +97,9 @@ function LessonPlanCard({ plan, index }: { plan: PlanData; index: number }) {
                 : "bg-stone-800 hover:bg-stone-700 text-white hover:shadow-lg hover:shadow-stone-300/50"
             }`}
           >
-            <Link href="/schedule">このプランで予約する</Link>
+            <Link href={isIndoor ? "/lessons" : "/schedule"}>
+              {isIndoor ? "プラン詳細を見る" : "このプランで予約する"}
+            </Link>
           </Button>
         </div>
       </div>
@@ -100,9 +107,37 @@ function LessonPlanCard({ plan, index }: { plan: PlanData; index: number }) {
   );
 }
 
+// インドアプランは料金体系が複雑なので、トップページでは固定サマリーで表示
+const INDOOR_SUMMARY_PLAN: PlanData = {
+  id: "indoor-summary",
+  name: "インドアレッスン",
+  category: "REGULAR",
+  tagLabel: "インドアレッスン",
+  description: "マンツーマンで丁寧に指導。会場・時間によって料金が異なります。任意の場所でも受講可能。",
+  price: 15500,
+  priceFrom: true,
+  priceNote: "50分〜（税込）",
+  duration: 50,
+  maxAttendees: 1,
+  isPublished: true,
+  highlights: [
+    "TrackMan / SPORTS BOX AI 対応",
+    "動画撮影＆フィードバック付き",
+    "4回チケットでお得",
+  ],
+  details: [
+    "THE GOLF HOUSE　50分 ¥20,000",
+    "GOLF NEXT24　50分 ¥17,000 / 70分 ¥23,000",
+    "任意の場所　50分 ¥15,500 / 70分 ¥21,000",
+    "4回チケットでお得（最大1回あたり ¥14,000〜）",
+  ],
+};
+
 export default async function HomePage() {
   const [plans, profile] = await Promise.all([getPlans(), getProfile()]);
-  const lessonPlans = plans.filter((p) => p.isPublished);
+  // インドアは固定サマリーで表示、その他（ラウンド・オンライン）は動的に
+  const dynamicPlans = plans.filter((p) => p.isPublished && p.category !== "REGULAR");
+  const lessonPlans = [INDOOR_SUMMARY_PLAN, ...dynamicPlans];
   const locations = profile.locations ?? [];
 
   return (
