@@ -371,6 +371,110 @@ export function adminReservationApprovedEmail(
   };
 }
 
+/** 管理者向け 顧客キャンセル通知 */
+export function adminReservationCancelledByCustomerEmail(
+  schedule: Schedule,
+  userName: string,
+  userEmail: string,
+  flex?: ReservationFlexInfo
+): { subject: string; html: string } {
+  const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
+  const startMs = new Date(schedule.startAt).getTime();
+  const endDate =
+    flex?.requestedDuration
+      ? new Date(startMs + flex.requestedDuration * 60 * 1000)
+      : new Date(schedule.endAt);
+
+  return {
+    subject: `【予約キャンセル】${userName} - ${dateStr}`,
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#dc2626;font-size:18px;font-weight:500;">
+        お客様により予約がキャンセルされました
+      </h2>
+      <p style="margin:0 0 16px;color:#78716c;font-size:14px;line-height:1.7;">
+        以下の予約がお客様ご自身によりキャンセルされました（レッスン7日前まで・無料キャンセル）。空き枠は自動的に再度予約可能になります。
+      </p>
+      <div style="background:#fef2f2;border-radius:12px;padding:20px;margin:16px 0 24px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">お客様</td>
+            <td style="padding:6px 0;font-weight:500;">${userName}<br><span style="color:#78716c;font-weight:normal;">${userEmail}</span></td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
+            <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
+            <td style="padding:6px 0;">${dateStr} ${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(endDate, "HH:mm")}</td>
+          </tr>
+          ${schedule.teeOffTime ? `
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">ティーオフ</td>
+            <td style="padding:6px 0;font-weight:500;color:#d97706;">${schedule.teeOffTime}</td>
+          </tr>` : ""}
+          ${flex?.requestedLocation || schedule.location ? `
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
+            <td style="padding:6px 0;${flex?.requestedLocation ? "color:#7c3aed;font-weight:500;" : ""}">${flex?.requestedLocation ?? schedule.location}</td>
+          </tr>` : ""}
+        </table>
+      </div>
+      <a href="${APP_URL}/admin/mayumi/reservations" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
+        管理画面で確認する
+      </a>
+    `),
+  };
+}
+
+/** 顧客向け キャンセル完了メール */
+export function reservationCancelledByCustomerEmail(
+  schedule: Schedule,
+  flex?: ReservationFlexInfo
+): { subject: string; html: string } {
+  const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
+  const startMs = new Date(schedule.startAt).getTime();
+  const endDate =
+    flex?.requestedDuration
+      ? new Date(startMs + flex.requestedDuration * 60 * 1000)
+      : new Date(schedule.endAt);
+
+  return {
+    subject: `【キャンセル完了】${dateStr} のレッスン予約`,
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#292524;font-size:18px;font-weight:500;">
+        予約をキャンセルしました
+      </h2>
+      <p style="margin:0 0 16px;color:#78716c;font-size:14px;line-height:1.7;">
+        下記のレッスン予約のキャンセルを承りました。ご利用ありがとうございました。
+      </p>
+      <div style="background:#fafaf9;border-radius:12px;padding:20px;margin:16px 0 24px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">プラン</td>
+            <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
+            <td style="padding:6px 0;">${dateStr} ${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(endDate, "HH:mm")}</td>
+          </tr>
+          ${flex?.requestedLocation || schedule.location ? `
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
+            <td style="padding:6px 0;">${flex?.requestedLocation ?? schedule.location}</td>
+          </tr>` : ""}
+        </table>
+      </div>
+      <p style="margin:0 0 24px;color:#78716c;font-size:13px;line-height:1.7;">
+        またのご予約を心よりお待ちしております。
+      </p>
+      <a href="${APP_URL}/schedule" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
+        別の日程を予約する
+      </a>
+    `),
+  };
+}
+
 /** 指導メモ通知メール（顧客向け） */
 export function instructorNoteEmail(
   customerName: string,

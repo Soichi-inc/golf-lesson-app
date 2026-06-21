@@ -7,8 +7,10 @@ import { sendMail, notifyAdmin } from "@/lib/email/send";
 import {
   reservationConfirmedEmail,
   reservationRejectedEmail,
+  reservationCancelledByCustomerEmail,
   adminReservationApprovedEmail,
   adminReservationRejectedEmail,
+  adminReservationCancelledByCustomerEmail,
 } from "@/lib/email/templates";
 import { requireAdmin, requireUser, handleActionError } from "@/lib/auth/guard";
 import {
@@ -83,11 +85,39 @@ export async function cancelReservationByCustomer(
       };
     }
 
-    return updateReservationStatusRecord(
+    const result = await updateReservationStatusRecord(
       reservationId,
       "CANCELLED",
       "顧客によるキャンセル（7日前・無料）"
     );
+    if (!result.success) return result;
+
+    // 顧客・管理者へキャンセル通知メール（送信失敗してもキャンセル自体は成功扱い）
+    const userName = record.userName || record.userEmail || "お客様";
+    const flexInfo = record.indoorLocationType
+      ? {
+          indoorLocationType: record.indoorLocationType,
+          requestedLocation: record.requestedLocation ?? null,
+          requestedDuration: record.requestedDuration ?? null,
+          usesTicketPack: record.usesTicketPack ?? null,
+          totalPrice: record.totalPrice ?? null,
+        }
+      : undefined;
+
+    if (record.userEmail) {
+      const { subject, html } = reservationCancelledByCustomerEmail(schedule, flexInfo);
+      await sendMail({ to: record.userEmail, subject, html }).catch(console.error);
+    }
+
+    const adminTemplate = adminReservationCancelledByCustomerEmail(
+      schedule,
+      userName,
+      record.userEmail,
+      flexInfo
+    );
+    await notifyAdmin(adminTemplate).catch(console.error);
+
+    return { success: true };
   } catch (e) {
     return handleActionError(e, "キャンセルに失敗しました");
   }
