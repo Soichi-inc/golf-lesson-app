@@ -14,7 +14,12 @@ async function main() {
     process.exit(1);
   }
   users.forEach((u) => {
-    console.log(`- ${u.email} | role: ${u.user_metadata?.role || "USER"} | id: ${u.id}`);
+    const appRole = u.app_metadata?.role;
+    const userRole = u.user_metadata?.role;
+    const effectiveRole = appRole || userRole || "USER";
+    console.log(
+      `- ${u.email} | role: ${effectiveRole} (app_metadata: ${appRole || "-"}, user_metadata: ${userRole || "-"}) | id: ${u.id}`
+    );
   });
 }
 main();

@@ -23,16 +23,21 @@ export async function setAdminRole(email: string) {
   const user = users.find((u) => u.email === email);
   if (!user) throw new Error(`User not found: ${email}`);
 
-  // user_metadataにrole: ADMINを設定
+  // app_metadataにrole: ADMINを設定（サーバー側のみ書込可・権限情報の正）
   const { error } = await admin.auth.admin.updateUserById(user.id, {
-    user_metadata: { ...user.user_metadata, role: "ADMIN" },
+    app_metadata: { ...user.app_metadata, role: "ADMIN" },
   });
   if (error) throw error;
 
   return { userId: user.id, email };
 }
 
-/** role=ADMINの全ユーザーのメールアドレスを取得 */
+/**
+ * role=ADMINの全ユーザーのメールアドレスを取得
+ * app_metadata.role を正とし、旧データ（user_metadata.role）も後方互換で拾う。
+ * ここが古いままだと、権限チェックはADMINとして通るのに通知メールだけ届かない
+ * という不整合が起きるため、認可チェックと必ず同じロジックを維持すること。
+ */
 export async function getAdminEmails(): Promise<string[]> {
   const admin = createAdminClient();
   const { data: { users }, error } = await admin.auth.admin.listUsers();
@@ -42,6 +47,10 @@ export async function getAdminEmails(): Promise<string[]> {
   }
 
   return users
-    .filter((u) => u.user_metadata?.role === "ADMIN" && u.email)
+    .filter(
+      (u) =>
+        (u.app_metadata?.role === "ADMIN" || u.user_metadata?.role === "ADMIN") &&
+        u.email
+    )
     .map((u) => u.email!);
 }

@@ -52,7 +52,7 @@ export async function sendMail({ to, subject, html }: SendMailOptions) {
 
 /**
  * 全ADMINユーザーに通知メールを送信
- * Supabase user_metadata.role === "ADMIN" のユーザーを自動検出
+ * Supabase app_metadata.role === "ADMIN"（旧: user_metadata.role）のユーザーを自動検出
  * 検出できない場合はフォールバックとして ADMIN_EMAIL 環境変数を使用
  */
 export async function notifyAdmin({ subject, html }: { subject: string; html: string }) {
