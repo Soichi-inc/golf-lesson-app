@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createClient } from "@/lib/supabase/client";
+import { requestPasswordReset } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,18 +31,12 @@ export default function ForgotPasswordForm() {
 
   const onSubmit = async (data: FormValues) => {
     setServerError(null);
-    const supabase = createClient();
-    const redirectTo =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/auth/reset-password`
-        : "/auth/reset-password";
+    // 自前フロー: サーバー側でリカバリートークンを発行し、日本語メール（Resend）で
+    // 本番URL固定のリンクを送る。Supabase標準メール（英語・Site URL依存）は使わない。
+    const result = await requestPasswordReset(data.email);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-      redirectTo,
-    });
-
-    if (error) {
-      setServerError("リクエストに失敗しました。しばらく経ってから再度お試しください。");
+    if (!result.success) {
+      setServerError(result.error || "リクエストに失敗しました。しばらく経ってから再度お試しください。");
       return;
     }
 

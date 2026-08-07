@@ -17,6 +17,7 @@ import {
   readReservationRecords,
   getAllReservations as _getAllReservations,
   updateReservationStatusRecord,
+  buildScheduleForRecord,
 } from "@/lib/data/reservations";
 
 // ---------------------------------------------------------------------------
@@ -69,21 +70,28 @@ export async function cancelReservationByCustomer(
       return { success: false, error: "完了済みの予約はキャンセルできません" };
     }
 
-    const schedule = await getScheduleById(record.scheduleId);
-    if (!schedule) return { success: false, error: "スケジュールが見つかりません" };
+    // スケジュール本体が削除済みでも、予約時スナップショットから情報を復元して
+    // 表示・判定・通知を続行する（孤児予約でもキャンセル可能にする）
+    const liveSchedule = await getScheduleById(record.scheduleId);
+    const schedule = buildScheduleForRecord(record, liveSchedule);
+    const hasDateInfo = !!liveSchedule || !!record.scheduleSnapshot;
 
-    const daysBefore = differenceInCalendarDays(
-      new Date(schedule.startAt),
-      new Date()
-    );
+    if (hasDateInfo) {
+      const daysBefore = differenceInCalendarDays(
+        new Date(schedule.startAt),
+        new Date()
+      );
 
-    if (daysBefore < 7) {
-      return {
-        success: false,
-        error:
-          "レッスン7日前を過ぎたキャンセルは、LINE公式アカウントから直接コーチにご連絡ください。",
-      };
+      if (daysBefore < 7) {
+        return {
+          success: false,
+          error:
+            "レッスン7日前を過ぎたキャンセルは、LINE公式アカウントから直接コーチにご連絡ください。",
+        };
+      }
     }
+    // 日付情報が一切ない旧孤児レコード（スケジュール削除済み・スナップショット無し）は
+    // レッスン枠自体が存在しないため、7日前ルールを適用せず無条件でキャンセルを許可する。
 
     const result = await updateReservationStatusRecord(
       reservationId,

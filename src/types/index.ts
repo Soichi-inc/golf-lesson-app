@@ -92,6 +92,12 @@ export type Reservation = {
   emergencyPhone: string | null;
   /** 合計料金（ラウンドは人数/タイプで算出、その他はschedule.price） */
   totalPrice: number;
+  /**
+   * スケジュール本体が削除済みかつ予約時スナップショットも無い（旧データの孤児予約）。
+   * true の場合、schedule はプレースホルダで日時情報が不正確。
+   * UI側では7日前ルールを適用せずキャンセルを許可する。
+   */
+  scheduleDataLost?: boolean;
   cancelledAt: Date | null;
   cancelReason: string | null;
   createdAt: Date;

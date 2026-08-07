@@ -225,6 +225,8 @@ export async function submitReservation(input: ReserveInput) {
       requestedCourse,
       emergencyPhone: emergencyPhoneTrimmed,
       totalPrice,
+      // スケジュールが後から削除されても予約表示・キャンセルが壊れないようスナップショット保存
+      schedule,
     });
 
     if (!saveResult.success) {

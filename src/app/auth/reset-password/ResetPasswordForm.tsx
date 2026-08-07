@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,18 +26,31 @@ type FormValues = z.infer<typeof schema>;
 
 export default function ResetPasswordForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [canReset, setCanReset] = useState(false);
+  // null = 検証中 / true = 再設定可 / false = リンク無効
+  const [canReset, setCanReset] = useState<boolean | null>(null);
 
-  // セッションを確認（メールリンクからアクセスした場合はセッションが存在するはず）
+  // リンク検証:
+  // 1) 自前メールのリンク（?token_hash=...）→ verifyOtp でセッション確立
+  // 2) 旧Supabase標準リンク互換 → 既にセッションがあるか確認
   useEffect(() => {
     const supabase = createClient();
+    const tokenHash = searchParams.get("token_hash");
+
+    if (tokenHash) {
+      supabase.auth
+        .verifyOtp({ type: "recovery", token_hash: tokenHash })
+        .then(({ error }) => setCanReset(!error));
+      return;
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setCanReset(!!data.session);
     });
-  }, []);
+  }, [searchParams]);
 
   const {
     register,
@@ -73,6 +86,15 @@ export default function ResetPasswordForm() {
         <p className="text-sm text-stone-500">
           ログイン画面に移動します…
         </p>
+      </div>
+    );
+  }
+
+  if (canReset === null) {
+    return (
+      <div className="w-full max-w-sm text-center">
+        <Loader2 className="mx-auto size-8 animate-spin text-stone-400 mb-4" />
+        <p className="text-sm text-stone-500">リンクを確認しています…</p>
       </div>
     );
   }

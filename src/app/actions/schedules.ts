@@ -295,12 +295,38 @@ export async function addSchedule(
   }
 }
 
-/** スケジュールを削除（ADMIN専用） */
+/**
+ * スケジュールを削除（ADMIN専用）
+ *
+ * アクティブな予約（PENDING / CONFIRMED）が紐づく枠は削除をブロックする。
+ * 予約を残したまま枠を消すと、顧客のマイページで「（不明なプラン）・日付不明・
+ * キャンセル不可」の孤児予約になる事故が発生したため。
+ * 先に予約管理画面でキャンセル / 完了処理をしてから削除する運用を強制する。
+ */
 export async function deleteSchedule(
   scheduleId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await requireAdmin();
+
+    // NOTE: `@/lib/data/reservations` はこのファイルを import しているため、
+    // 循環参照を避けて reservations.json を直接読む（scheduleId と status のみ参照）
+    const reservations = await readJsonFromStorage<
+      { scheduleId: string; status: string }[]
+    >("reservations.json", []);
+    const activeCount = reservations.filter(
+      (r) =>
+        r.scheduleId === scheduleId &&
+        (r.status === "PENDING" || r.status === "CONFIRMED")
+    ).length;
+
+    if (activeCount > 0) {
+      return {
+        success: false,
+        error: `この枠には${activeCount}件の予約（リクエスト中・確定）が入っているため削除できません。先に予約管理画面でキャンセルまたは完了処理を行ってください。`,
+      };
+    }
+
     const records = await readJsonFromStorage<ScheduleRecord[]>(
       SCHEDULES_PATH,
       defaultSchedules

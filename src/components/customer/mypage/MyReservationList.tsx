@@ -35,12 +35,16 @@ const LINE_OFFICIAL_URL = "https://lin.ee/mDThmZr";
  * キャンセルポリシー判定
  * 7日前以上: 顧客が自分でキャンセル可能（無料）
  * それ以降: LINE公式からコーチに連絡してもらう
+ * レッスン枠情報が失われた孤児予約: 日付判定不能のため無条件でキャンセル可能
  */
-function getCancelPolicy(lessonDate: Date): {
+function getCancelPolicy(rsv: Reservation): {
   type: "free" | "line";
   daysUntil: number;
 } {
-  const daysUntil = differenceInCalendarDays(lessonDate, new Date());
+  if (rsv.scheduleDataLost) {
+    return { type: "free", daysUntil: Infinity };
+  }
+  const daysUntil = differenceInCalendarDays(rsv.schedule.startAt, new Date());
   return {
     type: daysUntil >= 7 ? "free" : "line",
     daysUntil,
@@ -133,7 +137,7 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
     );
   }
 
-  const policy = cancelTarget ? getCancelPolicy(cancelTarget.schedule.startAt) : null;
+  const policy = cancelTarget ? getCancelPolicy(cancelTarget) : null;
 
   return (
     <>
@@ -161,24 +165,32 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
                         <Badge variant="outline" className={`text-[10px] ${s.className}`}>{s.label}</Badge>
                       </div>
                       <div className="flex flex-col gap-1 text-xs text-stone-500">
-                        <span className="flex items-center gap-1.5">
-                          <CalendarDays className="size-3 shrink-0" />
-                          {format(rsv.schedule.startAt, "yyyy年M月d日（E）", { locale: ja })}
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="size-3 shrink-0" />
-                          {format(rsv.schedule.startAt, "HH:mm")} – {format(
-                            rsv.requestedDuration
-                              ? new Date(new Date(rsv.schedule.startAt).getTime() + rsv.requestedDuration * 60 * 1000)
-                              : rsv.schedule.endAt,
-                            "HH:mm"
-                          )}
-                          {rsv.requestedDuration && (
-                            <span className="ml-1 text-violet-600">
-                              （{rsv.requestedDuration}分リクエスト）
+                        {rsv.scheduleDataLost ? (
+                          <span className="text-amber-600">
+                            このレッスン枠の情報は削除されました。不要な場合はキャンセルしてください。
+                          </span>
+                        ) : (
+                          <>
+                            <span className="flex items-center gap-1.5">
+                              <CalendarDays className="size-3 shrink-0" />
+                              {format(rsv.schedule.startAt, "yyyy年M月d日（E）", { locale: ja })}
                             </span>
-                          )}
-                        </span>
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="size-3 shrink-0" />
+                              {format(rsv.schedule.startAt, "HH:mm")} – {format(
+                                rsv.requestedDuration
+                                  ? new Date(new Date(rsv.schedule.startAt).getTime() + rsv.requestedDuration * 60 * 1000)
+                                  : rsv.schedule.endAt,
+                                "HH:mm"
+                              )}
+                              {rsv.requestedDuration && (
+                                <span className="ml-1 text-violet-600">
+                                  （{rsv.requestedDuration}分リクエスト）
+                                </span>
+                              )}
+                            </span>
+                          </>
+                        )}
                         {(rsv.requestedLocation || rsv.schedule.location) && (
                           <span className="flex items-center gap-1.5">
                             <MapPin className="size-3 shrink-0" />
@@ -263,11 +275,13 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
                       {cancelTarget.schedule.lessonPlan.name}
                     </p>
                     <p>
-                      {format(
-                        cancelTarget.schedule.startAt,
-                        "yyyy年M月d日（E） HH:mm",
-                        { locale: ja }
-                      )}
+                      {cancelTarget.scheduleDataLost
+                        ? "日時情報なし（レッスン枠は削除済み）"
+                        : format(
+                            cancelTarget.schedule.startAt,
+                            "yyyy年M月d日（E） HH:mm",
+                            { locale: ja }
+                          )}
                     </p>
                   </div>
 

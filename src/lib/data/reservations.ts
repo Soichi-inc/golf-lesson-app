@@ -13,14 +13,47 @@ import "server-only";
 import type {
   IndoorFlexDuration,
   IndoorLocationType,
+  LessonCategory,
   Reservation,
   ReservationStatus,
   RoundBookingType,
+  Schedule,
 } from "@/types";
 import { getSchedules } from "@/app/actions/schedules";
 import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
 
 const FILE_PATH = "reservations.json";
+
+/**
+ * 予約時点のスケジュール情報スナップショット。
+ * 予約は scheduleId で参照するが、参照先スケジュールが後から削除・再構築されると
+ * 「（不明なプラン）・日付不明・キャンセル不可」の孤児予約になる事故が起きた。
+ * 予約時に必要情報を非正規化保存し、スケジュールが消えても
+ * 表示・キャンセル判定・メール通知が正しく動くことを保証する。
+ */
+export type ScheduleSnapshot = {
+  planName: string;
+  planCategory: LessonCategory;
+  planPrice: number;
+  planDuration: number;
+  startAt: string; // ISO
+  endAt: string; // ISO
+  location: string | null;
+  teeOffTime: string | null;
+};
+
+export function makeScheduleSnapshot(schedule: Schedule): ScheduleSnapshot {
+  return {
+    planName: schedule.lessonPlan.name,
+    planCategory: schedule.lessonPlan.category,
+    planPrice: schedule.lessonPlan.price,
+    planDuration: schedule.lessonPlan.duration,
+    startAt: new Date(schedule.startAt).toISOString(),
+    endAt: new Date(schedule.endAt).toISOString(),
+    location: schedule.location,
+    teeOffTime: schedule.teeOffTime,
+  };
+}
 
 export type ReservationRecord = {
   id: string;
@@ -48,11 +81,53 @@ export type ReservationRecord = {
   emergencyPhone?: string | null;
   /** 予約時に確定した合計料金 */
   totalPrice: number | null;
+  /** 予約時点のスケジュール情報（スケジュール削除後のフォールバック用・旧レコードは未設定） */
+  scheduleSnapshot?: ScheduleSnapshot | null;
   cancelledAt: string | null;
   cancelReason: string | null;
   createdAt: string;
   updatedAt: string;
 };
+
+/**
+ * 予約レコードから表示・判定用の Schedule を構築する。
+ * 優先順: ライブのスケジュール > 予約時スナップショット > プレースホルダ。
+ * スナップショットが無い旧孤児レコードのみ「（不明なプラン）」表示になる。
+ */
+export function buildScheduleForRecord(
+  r: ReservationRecord,
+  live: Schedule | null | undefined
+): Schedule {
+  if (live) return live;
+  const snap = r.scheduleSnapshot;
+  return {
+    id: r.scheduleId,
+    lessonPlanId: "",
+    lessonPlan: {
+      id: "",
+      name: snap?.planName ?? "（不明なプラン）",
+      category: snap?.planCategory ?? ("REGULAR" as const),
+      description: null,
+      price: snap?.planPrice ?? 0,
+      duration: snap?.planDuration ?? 0,
+      maxAttendees: 1,
+      isPublished: false,
+      displayOrder: 0,
+      createdAt: new Date(r.createdAt),
+      updatedAt: new Date(r.createdAt),
+    },
+    startAt: snap ? new Date(snap.startAt) : new Date(r.createdAt),
+    endAt: snap ? new Date(snap.endAt) : new Date(r.createdAt),
+    location: snap?.location ?? null,
+    maxAttendees: 1,
+    isAvailable: false,
+    note: null,
+    teeOffTime: snap?.teeOffTime ?? null,
+    allowAnyLocation: false,
+    createdAt: new Date(r.createdAt),
+    updatedAt: new Date(r.createdAt),
+  };
+}
 
 export async function readReservationRecords(): Promise<ReservationRecord[]> {
   return readJsonFromStorage<ReservationRecord[]>(FILE_PATH, []);
@@ -87,33 +162,7 @@ export async function getAllReservations(): Promise<Reservation[]> {
         updatedAt: new Date(r.updatedAt),
       },
       scheduleId: r.scheduleId,
-      schedule: schedule ?? {
-        id: r.scheduleId,
-        lessonPlanId: "",
-        lessonPlan: {
-          id: "",
-          name: "（不明なプラン）",
-          category: "REGULAR" as const,
-          description: null,
-          price: 0,
-          duration: 0,
-          maxAttendees: 1,
-          isPublished: false,
-          displayOrder: 0,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        startAt: new Date(r.createdAt),
-        endAt: new Date(r.createdAt),
-        location: null,
-        maxAttendees: 1,
-        isAvailable: false,
-        note: null,
-        teeOffTime: null,
-        allowAnyLocation: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
+      schedule: buildScheduleForRecord(r, schedule),
       status: r.status,
       concern: r.concern,
       agreedCancelPolicy: r.agreedCancelPolicy,
@@ -128,7 +177,12 @@ export async function getAllReservations(): Promise<Reservation[]> {
       existingPlanId: r.existingPlanId ?? null,
       requestedCourse: r.requestedCourse ?? null,
       emergencyPhone: r.emergencyPhone ?? null,
-      totalPrice: r.totalPrice ?? (schedule?.lessonPlan.price ?? 0),
+      totalPrice:
+        r.totalPrice ??
+        schedule?.lessonPlan.price ??
+        r.scheduleSnapshot?.planPrice ??
+        0,
+      scheduleDataLost: !schedule && !r.scheduleSnapshot,
       cancelledAt: r.cancelledAt ? new Date(r.cancelledAt) : null,
       cancelReason: r.cancelReason,
       createdAt: new Date(r.createdAt),
@@ -186,6 +240,8 @@ export async function insertReservationRecord(input: {
   requestedCourse?: string | null;
   emergencyPhone?: string | null;
   totalPrice: number;
+  /** 予約対象のスケジュール本体。渡すと予約時点の情報をスナップショット保存する（必ず渡すこと） */
+  schedule?: Schedule | null;
 }): Promise<{ success: boolean; reservationId?: string; error?: string }> {
   const records = await readReservationRecords();
   const id = `rsv-${Date.now()}`;
@@ -212,6 +268,7 @@ export async function insertReservationRecord(input: {
     requestedCourse: input.requestedCourse ?? null,
     emergencyPhone: input.emergencyPhone ?? null,
     totalPrice: input.totalPrice,
+    scheduleSnapshot: input.schedule ? makeScheduleSnapshot(input.schedule) : null,
     cancelledAt: null,
     cancelReason: null,
     createdAt: now,

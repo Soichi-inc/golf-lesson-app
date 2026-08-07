@@ -475,6 +475,35 @@ export function reservationCancelledByCustomerEmail(
   };
 }
 
+/** パスワード再設定メール（顧客向け・自前送信）
+ * Supabase標準メール（英語・Site URL依存）を使わず、Resendから日本語で送る。
+ * リンクは NEXT_PUBLIC_APP_URL ベースで生成するため、Supabaseダッシュボードの
+ * URL設定に依存せず、localhost行きリンクが発生しない。
+ */
+export function passwordResetEmail(resetUrl: string): { subject: string; html: string } {
+  return {
+    subject: "【パスワード再設定】奥村真由美ゴルフレッスン",
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#292524;font-size:18px;font-weight:500;">
+        パスワード再設定のご案内
+      </h2>
+      <p style="margin:0 0 24px;color:#78716c;font-size:14px;line-height:1.7;">
+        パスワード再設定のリクエストを受け付けました。<br>
+        下のボタンから新しいパスワードを設定してください。
+      </p>
+
+      <a href="${resetUrl}" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
+        パスワードを再設定する
+      </a>
+
+      <p style="margin:24px 0 0;color:#a8a29e;font-size:12px;line-height:1.6;">
+        ※リンクの有効期限は約1時間です。期限切れの場合は再度お手続きください。<br>
+        ※このメールに心当たりがない場合は、破棄していただいて問題ありません（パスワードは変更されません）。
+      </p>
+    `),
+  };
+}
+
 /** 指導メモ通知メール（顧客向け） */
 export function instructorNoteEmail(
   customerName: string,
