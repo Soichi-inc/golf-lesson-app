@@ -28,6 +28,24 @@ const STATUS_MAP: Record<
   CANCELLED: { label: "キャンセル",   className: "bg-stone-100 text-stone-500 border-stone-200" },
 };
 
+/**
+ * 表示用ステータス。過去セクションでは日付経過を加味して自動判定する:
+ * - 確定済みで日付が過ぎた予約 → 「レッスン実施済」（管理側の完了処理漏れでも実施済み表示）
+ * - リクエスト中のまま日付が過ぎた予約 → 「期限切れ」
+ */
+function getDisplayStatus(
+  rsv: Reservation,
+  section: "upcoming" | "past"
+): { label: string; className: string } {
+  if (section === "past") {
+    if (rsv.status === "CONFIRMED") return STATUS_MAP.COMPLETED;
+    if (rsv.status === "PENDING") {
+      return { label: "期限切れ", className: "bg-stone-100 text-stone-500 border-stone-200" };
+    }
+  }
+  return STATUS_MAP[rsv.status];
+}
+
 // LINE公式アカウント URL
 const LINE_OFFICIAL_URL = "https://lin.ee/mDThmZr";
 
@@ -91,9 +109,19 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [doneMessage, setDoneMessage] = useState<string | null>(null);
 
-  const sorted = [...reservations].sort(
-    (a, b) => b.schedule.startAt.getTime() - a.schedule.startAt.getTime()
-  );
+  // 「今後のご予約」= リクエスト中/確定 かつ 開始時刻が未来（枠情報消失分は操作可能にするため今後扱い）
+  // それ以外（実施済み・期限切れ・キャンセル）は「過去のレッスン」セクションへ
+  const now = Date.now();
+  const isUpcoming = (rsv: Reservation) =>
+    (rsv.status === "PENDING" || rsv.status === "CONFIRMED") &&
+    (rsv.scheduleDataLost || rsv.schedule.startAt.getTime() >= now);
+
+  const upcoming = reservations
+    .filter(isUpcoming)
+    .sort((a, b) => a.schedule.startAt.getTime() - b.schedule.startAt.getTime());
+  const past = reservations
+    .filter((r) => !isUpcoming(r))
+    .sort((a, b) => b.schedule.startAt.getTime() - a.schedule.startAt.getTime());
 
   const canCancel = (rsv: Reservation) =>
     rsv.status === "PENDING" || rsv.status === "CONFIRMED";
@@ -125,7 +153,7 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
     setCancelTarget(null);
   };
 
-  if (sorted.length === 0) {
+  if (reservations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-stone-200 py-14 text-center">
         <CalendarDays className="mb-3 size-10 text-stone-300" />
@@ -147,9 +175,9 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
         </div>
       )}
 
-      <ul className="flex flex-col gap-3">
-        {sorted.map((rsv) => {
-          const s = STATUS_MAP[rsv.status];
+      {(() => {
+        const renderCard = (rsv: Reservation, section: "upcoming" | "past") => {
+          const s = getDisplayStatus(rsv, section);
           return (
             <li key={rsv.id} className="rounded-2xl bg-white ring-1 ring-stone-100 shadow-sm overflow-hidden">
               <div className="flex items-stretch">
@@ -241,8 +269,8 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
                     </div>
                   </div>
 
-                  {/* キャンセルボタン */}
-                  {canCancel(rsv) && (
+                  {/* キャンセルボタン（今後の予約のみ。過去分は実施済み扱いのため非表示） */}
+                  {section === "upcoming" && canCancel(rsv) && (
                     <div className="mt-3 pt-3 border-t border-stone-100">
                       <button
                         onClick={() => { setDoneMessage(null); setCancelTarget(rsv); }}
@@ -256,8 +284,55 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
               </div>
             </li>
           );
-        })}
-      </ul>
+        };
+
+        return (
+          <div className="space-y-8">
+            {/* 今後のご予約 */}
+            <section>
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-stone-700">
+                <span className="inline-block size-2 rounded-full bg-blue-500" />
+                今後のご予約
+                <span className="text-xs font-normal text-stone-400">
+                  {upcoming.length}件
+                </span>
+              </h2>
+              {upcoming.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-stone-200 px-4 py-6 text-center">
+                  <p className="mb-3 text-xs text-stone-400">今後のご予約はありません</p>
+                  <Button
+                    asChild
+                    size="sm"
+                    className="rounded-full bg-stone-800 hover:bg-stone-700"
+                  >
+                    <Link href="/schedule">レッスンを予約する</Link>
+                  </Button>
+                </div>
+              ) : (
+                <ul className="flex flex-col gap-3">
+                  {upcoming.map((rsv) => renderCard(rsv, "upcoming"))}
+                </ul>
+              )}
+            </section>
+
+            {/* 過去のレッスン・キャンセル */}
+            {past.length > 0 && (
+              <section>
+                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-stone-700">
+                  <span className="inline-block size-2 rounded-full bg-emerald-500" />
+                  過去のレッスン・キャンセル
+                  <span className="text-xs font-normal text-stone-400">
+                    {past.length}件
+                  </span>
+                </h2>
+                <ul className="flex flex-col gap-3">
+                  {past.map((rsv) => renderCard(rsv, "past"))}
+                </ul>
+              </section>
+            )}
+          </div>
+        );
+      })()}
 
       {/* キャンセル確認ダイアログ */}
       <Dialog open={!!cancelTarget} onOpenChange={(open) => { if (!open) setCancelTarget(null); }}>

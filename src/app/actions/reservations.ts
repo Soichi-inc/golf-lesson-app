@@ -59,7 +59,13 @@ export async function cancelReservationByCustomer(
     const record = records.find((r) => r.id === reservationId);
     if (!record) return { success: false, error: "予約が見つかりません" };
 
-    if (record.userId !== user.id) {
+    // 所有者判定: userId 一致、またはログイン済みメールアドレスの一致
+    // （アカウント再登録で userId が変わった予約も本人ならキャンセル可能にする。
+    //   メールは Supabase 認証で本人確認済みのため所有者証明として扱える）
+    const emailMatches =
+      !!user.email &&
+      record.userEmail.trim().toLowerCase() === user.email.trim().toLowerCase();
+    if (record.userId !== user.id && !emailMatches) {
       return { success: false, error: "他のユーザーの予約はキャンセルできません" };
     }
 
@@ -137,8 +143,17 @@ export async function getReservationsByUserId(userId: string): Promise<Reservati
   if (user.role !== "ADMIN" && user.id !== userId) {
     throw new Error("他のユーザーの予約は閲覧できません");
   }
+  // 本人閲覧時はメールアドレス一致でも照合する
+  // （アカウント再登録で userId が変わっても、同じメールなら過去の予約を表示できる）
+  const selfEmail = user.id === userId ? user.email : null;
+  const normalizedEmail = selfEmail?.trim().toLowerCase() || null;
   const all = await _getAllReservations();
-  return all.filter((r) => r.userId === userId);
+  return all.filter(
+    (r) =>
+      r.userId === userId ||
+      (normalizedEmail !== null &&
+        r.user.email.trim().toLowerCase() === normalizedEmail)
+  );
 }
 
 /**

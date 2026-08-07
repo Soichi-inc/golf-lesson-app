@@ -74,7 +74,8 @@ export async function getCustomerDetail(userId: string): Promise<CustomerDetail 
   if (user.user_metadata?.role === "ADMIN" || user.app_metadata?.role === "ADMIN") return null;
 
   const [reservations, drills, instructorNotes, roundScores, userNotes] = await Promise.all([
-    getReservationsByUserId(userId),
+    // メール照合も併用（アカウント再登録前の予約もカルテに表示する）
+    getReservationsByUserId(userId, user.email),
     getDrillsByUserId(userId),
     getInstructorNotesByUserId(userId),
     getScoresByUserId(userId),

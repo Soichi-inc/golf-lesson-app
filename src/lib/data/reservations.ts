@@ -191,12 +191,26 @@ export async function getAllReservations(): Promise<Reservation[]> {
   });
 }
 
-/** 特定ユーザーの予約を取得 */
+/**
+ * 特定ユーザーの予約を取得
+ *
+ * email を渡すと userId 一致に加えてメールアドレス一致（大文字小文字無視）でも照合する。
+ * パスワードリセット不能期間にアカウントを再登録したユーザーは userId が変わり、
+ * 旧アカウントで取った予約が履歴から消える事故が起きたため、
+ * 本人確認済みメール（Supabaseログイン）での照合をフォールバックとして持つ。
+ */
 export async function getReservationsByUserId(
-  userId: string
+  userId: string,
+  email?: string | null
 ): Promise<Reservation[]> {
   const all = await getAllReservations();
-  return all.filter((r) => r.userId === userId);
+  const normalizedEmail = email?.trim().toLowerCase() || null;
+  return all.filter(
+    (r) =>
+      r.userId === userId ||
+      (normalizedEmail !== null &&
+        r.user.email.trim().toLowerCase() === normalizedEmail)
+  );
 }
 
 /** 予約ステータス更新（ストレージ書込のみ。認可チェックは呼び出し側） */
