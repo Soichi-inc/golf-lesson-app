@@ -13,6 +13,9 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+/** 公式LINE（お問い合わせ・場所リクエスト・オンライン日程調整の窓口） */
+const LINE_OFFICIAL_URL = "https://lin.ee/UP2gfpv";
+
 /* ---------- インドアプラン料金表（管理画面の値と統一） ---------- */
 type IndoorRow = {
   facility: string;
@@ -204,7 +207,7 @@ function IndoorLessonCard() {
               </p>
             </div>
             <Button asChild size="sm" className="rounded-full bg-[#06C755] hover:bg-[#05b04c] text-white text-xs gap-1 shrink-0">
-              <Link href="https://lin.ee/UP2gfpv" target="_blank" rel="noopener noreferrer">
+              <Link href={LINE_OFFICIAL_URL} target="_blank" rel="noopener noreferrer">
                 <MessageCircle className="size-3.5" />
                 LINE相談
               </Link>
@@ -287,28 +290,47 @@ function PlanCard({ plan }: { plan: PlanData }) {
           </div>
         )}
 
-        {/* メタ */}
+        {/* メタ（ラウンドはコースにより所要時間が変わるため分数を出さない） */}
         <div className="mb-5 flex flex-wrap gap-3 text-xs text-stone-400">
-          <span className="flex items-center gap-1.5">
-            <Clock className="size-3.5" />
-            {plan.duration}分
-          </span>
+          {plan.duration > 0 && plan.category !== "ROUND" && (
+            <span className="flex items-center gap-1.5">
+              <Clock className="size-3.5" />
+              {plan.duration}分
+            </span>
+          )}
           <span className="flex items-center gap-1.5">
             <Users className="size-3.5" />
             {plan.maxAttendees === 1 ? "マンツーマン" : `定員${plan.maxAttendees}名`}
           </span>
         </div>
 
-        {/* CTA */}
-        <Button
-          asChild
-          className={`w-full rounded-full text-sm text-white ${c.btn}`}
-        >
-          <Link href="/schedule">
-            空き枠を確認する
-            <ChevronRight className="size-4 ml-1" />
-          </Link>
-        </Button>
+        {/* CTA: オンライン系は日程をLINEで調整するため、予約導線ではなくLINE誘導 */}
+        {plan.category === "ONLINE" ? (
+          <>
+            <p className="mb-3 text-center text-xs text-stone-500">
+              日程はLINEにてお問い合わせください
+            </p>
+            <Button
+              asChild
+              className="w-full rounded-full bg-[#06C755] hover:bg-[#05b04c] text-sm text-white gap-1.5"
+            >
+              <Link href={LINE_OFFICIAL_URL} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="size-4" />
+                LINEにてお問い合わせ
+              </Link>
+            </Button>
+          </>
+        ) : (
+          <Button
+            asChild
+            className={`w-full rounded-full text-sm text-white ${c.btn}`}
+          >
+            <Link href="/schedule">
+              空き枠を確認する
+              <ChevronRight className="size-4 ml-1" />
+            </Link>
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -400,9 +422,17 @@ export default async function LessonsPage() {
             <p className="mb-4 text-sm leading-relaxed text-stone-600">
               場所や移動時間を気にせず、スマホ1台で受講できるオンラインレッスン。
               スイング動画を撮ってお送りいただくだけで、丁寧にフィードバックします。
+              日程はLINEにてお問い合わせください。
             </p>
-            <Button asChild size="sm" className="rounded-full bg-sky-500 hover:bg-sky-600 text-white">
-              <Link href="/schedule">空き枠を確認する</Link>
+            <Button
+              asChild
+              size="sm"
+              className="rounded-full bg-[#06C755] hover:bg-[#05b04c] text-white gap-1.5"
+            >
+              <Link href={LINE_OFFICIAL_URL} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="size-3.5" />
+                LINEにてお問い合わせ
+              </Link>
             </Button>
           </div>
         </section>

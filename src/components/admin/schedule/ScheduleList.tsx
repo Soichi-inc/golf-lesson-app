@@ -42,9 +42,11 @@ type Props = {
   schedules: Schedule[];
   selectedDate: Date | undefined;
   onDelete: (id: string) => void;
+  /** スケジュールIDごとの予約状況（キャンセル除く件数） */
+  bookedCounts?: Record<string, { count: number; privateLocked: boolean }>;
 };
 
-export function ScheduleList({ schedules, selectedDate, onDelete }: Props) {
+export function ScheduleList({ schedules, selectedDate, onDelete, bookedCounts }: Props) {
   const filtered = selectedDate
     ? schedules.filter(
         (s) =>
@@ -77,6 +79,7 @@ export function ScheduleList({ schedules, selectedDate, onDelete }: Props) {
           key={schedule.id}
           schedule={schedule}
           onDelete={onDelete}
+          activeReservationCount={bookedCounts?.[schedule.id]?.count ?? 0}
         />
       ))}
     </div>
@@ -86,28 +89,38 @@ export function ScheduleList({ schedules, selectedDate, onDelete }: Props) {
 function ScheduleCard({
   schedule,
   onDelete,
+  activeReservationCount,
 }: {
   schedule: Schedule;
   onDelete: (id: string) => void;
+  activeReservationCount: number;
 }) {
-  const isBooked = !schedule.isAvailable;
+  // 実際の予約データに基づく判定（isAvailable は管理者による手動の受付停止フラグ）
+  const hasReservation = activeReservationCount > 0;
+  const isClosed = !schedule.isAvailable;
 
   return (
-    <Card className={isBooked ? "border-amber-200 bg-amber-50/50" : "bg-white"}>
+    <Card className={hasReservation ? "border-amber-200 bg-amber-50/50" : "bg-white"}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           {/* 左: 時刻・プラン情報 */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5">
               <Badge
-                variant={isBooked ? "secondary" : "outline"}
+                variant={hasReservation ? "secondary" : "outline"}
                 className={
-                  isBooked
+                  hasReservation
                     ? "bg-amber-100 text-amber-700 border-amber-200 text-[10px]"
-                    : "text-[10px] text-stone-600"
+                    : isClosed
+                      ? "bg-stone-100 text-stone-500 border-stone-200 text-[10px]"
+                      : "text-[10px] text-stone-600"
                 }
               >
-                {isBooked ? "予約済み" : "空き"}
+                {hasReservation
+                  ? `予約済み（${activeReservationCount}件）`
+                  : isClosed
+                    ? "受付停止"
+                    : "空き"}
               </Badge>
               <Badge
                 variant="outline"
@@ -162,10 +175,10 @@ function ScheduleCard({
             )}
           </div>
 
-          {/* 右: 削除ボタン */}
+          {/* 右: 削除ボタン（予約が入っている枠は削除不可・サーバー側でもブロック） */}
           <DeleteConfirm
             onConfirm={() => onDelete(schedule.id)}
-            disabled={isBooked}
+            disabled={hasReservation}
           />
         </div>
       </CardContent>

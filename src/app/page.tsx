@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Award, MapPin, Clock, Users, CheckCircle2, Instagram, ChevronRight, Play } from "lucide-react";
+import { Award, MapPin, Clock, Users, CheckCircle2, Instagram, Youtube, MessageCircle, ChevronRight, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CustomerHeader } from "@/components/customer/Header";
 import { CustomerFooter } from "@/components/customer/Footer";
@@ -15,6 +15,11 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
+
+/** 公式LINE（オンライン日程調整・お問い合わせ窓口） */
+const LINE_OFFICIAL_URL = "https://lin.ee/UP2gfpv";
+/** YouTubeチャンネル */
+const YOUTUBE_URL = "https://youtube.com/@mayumi_gf";
 
 const qualifications = [
   { label: "LPGA（全米女子プロゴルフ協会）メンバー" },
@@ -80,27 +85,47 @@ function LessonPlanCard({ plan, index }: { plan: PlanData; index: number }) {
             ))}
           </ul>
           <div className="mb-6 flex flex-wrap gap-3 text-xs text-stone-400">
-            <span className="flex items-center gap-1.5">
-              <Clock className="size-3.5" />
-              {plan.duration}分
-            </span>
+            {plan.duration > 0 && !isRound && (
+              <span className="flex items-center gap-1.5">
+                <Clock className="size-3.5" />
+                {plan.duration}分
+              </span>
+            )}
             <span className="flex items-center gap-1.5">
               <Users className="size-3.5" />
               定員{plan.maxAttendees}名
             </span>
           </div>
-          <Button
-            asChild
-            className={`w-full rounded-full text-sm font-light tracking-wider transition-all duration-500 ${
-              isRound
-                ? "bg-amber-500 hover:bg-amber-600 text-white hover:shadow-lg hover:shadow-amber-200/50"
-                : "bg-stone-800 hover:bg-stone-700 text-white hover:shadow-lg hover:shadow-stone-300/50"
-            }`}
-          >
-            <Link href={isIndoor ? "/lessons" : "/schedule"}>
-              {isIndoor ? "プラン詳細を見る" : "このプランで予約する"}
-            </Link>
-          </Button>
+          {isOnline ? (
+            /* オンライン系は日程をLINEで調整するため、予約導線ではなくLINE誘導 */
+            <>
+              <p className="mb-3 text-center text-xs text-stone-400">
+                日程はLINEにてお問い合わせください
+              </p>
+              <Button
+                asChild
+                className="w-full rounded-full bg-[#06C755] hover:bg-[#05b04c] text-white text-sm font-light tracking-wider gap-1.5 transition-all duration-500"
+              >
+                <Link href={LINE_OFFICIAL_URL} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="size-4" />
+                  LINEにてお問い合わせ
+                </Link>
+              </Button>
+            </>
+          ) : (
+            <Button
+              asChild
+              className={`w-full rounded-full text-sm font-light tracking-wider transition-all duration-500 ${
+                isRound
+                  ? "bg-amber-500 hover:bg-amber-600 text-white hover:shadow-lg hover:shadow-amber-200/50"
+                  : "bg-stone-800 hover:bg-stone-700 text-white hover:shadow-lg hover:shadow-stone-300/50"
+              }`}
+            >
+              <Link href={isIndoor ? "/lessons" : "/schedule"}>
+                {isIndoor ? "プラン詳細を見る" : "このプランで予約する"}
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </AnimatedSection>
@@ -306,15 +331,26 @@ export default async function HomePage() {
                   </div>
                 )}
 
-                <a
-                  href="https://www.instagram.com/mayumi_gf"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-white/40 transition-colors duration-300 hover:text-[#b8945f]"
-                >
-                  <Instagram className="size-4" />
-                  @mayumi_gf
-                </a>
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                  <a
+                    href="https://www.instagram.com/mayumi_gf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-white/40 transition-colors duration-300 hover:text-[#b8945f]"
+                  >
+                    <Instagram className="size-4" />
+                    @mayumi_gf
+                  </a>
+                  <a
+                    href={YOUTUBE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-white/40 transition-colors duration-300 hover:text-[#b8945f]"
+                  >
+                    <Youtube className="size-4" />
+                    YouTube
+                  </a>
+                </div>
               </AnimatedSection>
             </div>
           </div>
@@ -363,11 +399,9 @@ export default async function HomePage() {
             <AnimatedSection>
               <p className="mb-4 text-[10px] font-medium tracking-[0.5em] text-[#b8945f] uppercase">Book a Lesson</p>
               <h2 className="mb-6 text-3xl font-extralight tracking-wider text-white sm:text-4xl">
-                まずは体験レッスンから
+                まずは気軽に始めてみませんか
               </h2>
               <p className="mx-auto mb-12 max-w-md text-sm font-light leading-relaxed text-stone-400">
-                オンライン体験レッスン 25分 ¥1,000〜。
-                <br />
                 空き枠を確認して、あなたのペースで始めましょう。
               </p>
               <Link

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ScheduleManager } from "@/components/admin/schedule/ScheduleManager";
 import { getSchedules, getLessonPlans } from "@/app/actions/schedules";
+import { getBookedCountsByScheduleId } from "@/app/actions/reservations";
 
 export const metadata: Metadata = {
   title: "スケジュール管理",
@@ -9,9 +10,11 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AdminSchedulePage() {
-  const [schedules, lessonPlans] = await Promise.all([
+  const [schedules, lessonPlans, bookedCounts] = await Promise.all([
     getSchedules(),
     getLessonPlans(),
+    // 予約が入った枠を一覧から区別・非表示にするための集計
+    getBookedCountsByScheduleId(),
   ]);
 
   return (
@@ -30,6 +33,7 @@ export default async function AdminSchedulePage() {
       <ScheduleManager
         initialSchedules={schedules}
         lessonPlans={lessonPlans}
+        bookedCounts={bookedCounts}
       />
     </div>
   );

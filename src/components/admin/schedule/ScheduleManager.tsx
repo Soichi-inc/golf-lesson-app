@@ -14,6 +14,8 @@ import type { LessonPlan, Schedule } from "@/types";
 type Props = {
   initialSchedules: Schedule[];
   lessonPlans: LessonPlan[];
+  /** スケジュールIDごとの予約状況（キャンセル除く件数） */
+  bookedCounts?: Record<string, { count: number; privateLocked: boolean }>;
 };
 
 /** Date文字列→Date変換（Server→Clientのシリアライゼーション対策） */
@@ -44,7 +46,7 @@ function hydrateLessonPlan(p: LessonPlan): LessonPlan {
   };
 }
 
-export function ScheduleManager({ initialSchedules, lessonPlans }: Props) {
+export function ScheduleManager({ initialSchedules, lessonPlans, bookedCounts }: Props) {
   const router = useRouter();
   const [schedules, setSchedules] = useState<Schedule[]>(
     initialSchedules.map(hydrateSchedule)
@@ -53,8 +55,18 @@ export function ScheduleManager({ initialSchedules, lessonPlans }: Props) {
     new Date()
   );
   const [saving, setSaving] = useState(false);
+  // 予約が入った枠はデフォルトで一覧から隠す（トグルで表示可能）
+  const [showBooked, setShowBooked] = useState(false);
 
   const hydratedPlans = lessonPlans.map(hydrateLessonPlan);
+
+  /** 予約（キャンセル除く）が1件でも入っている枠か */
+  const isBooked = (s: Schedule) => (bookedCounts?.[s.id]?.count ?? 0) > 0;
+
+  const bookedTotal = schedules.filter(isBooked).length;
+  const visibleSchedules = showBooked
+    ? schedules
+    : schedules.filter((s) => !isBooked(s));
 
   async function handleCreated(
     data: Omit<Schedule, "id" | "createdAt" | "updatedAt" | "lessonPlan">
@@ -121,20 +133,20 @@ export function ScheduleManager({ initialSchedules, lessonPlans }: Props) {
   }
 
   const displayedCount = selectedDate
-    ? schedules.filter(
+    ? visibleSchedules.filter(
         (s) =>
           s.startAt.getFullYear() === selectedDate.getFullYear() &&
           s.startAt.getMonth() === selectedDate.getMonth() &&
           s.startAt.getDate() === selectedDate.getDate()
       ).length
-    : schedules.length;
+    : visibleSchedules.length;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-6 items-start">
       {/* カレンダーパネル */}
       <div className="bg-white rounded-xl border p-5 shadow-sm">
         <ScheduleCalendar
-          schedules={schedules}
+          schedules={visibleSchedules}
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
         />
@@ -167,11 +179,34 @@ export function ScheduleManager({ initialSchedules, lessonPlans }: Props) {
           />
         </div>
 
+        {/* 予約済み枠の表示トグル（予約が入った枠はデフォルト非表示） */}
+        {bookedTotal > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowBooked((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors ${
+              showBooked
+                ? "border-amber-300 bg-amber-50 text-amber-700"
+                : "border-stone-200 bg-white text-stone-500 hover:bg-stone-50"
+            }`}
+          >
+            <span
+              className={`inline-block size-1.5 rounded-full ${
+                showBooked ? "bg-amber-500" : "bg-stone-300"
+              }`}
+            />
+            {showBooked
+              ? "予約済みの枠を隠す"
+              : `予約済みの枠を表示（${bookedTotal}件）`}
+          </button>
+        )}
+
         {/* 枠一覧 */}
         <ScheduleList
-          schedules={schedules}
+          schedules={visibleSchedules}
           selectedDate={selectedDate}
           onDelete={handleDelete}
+          bookedCounts={bookedCounts}
         />
       </div>
     </div>
