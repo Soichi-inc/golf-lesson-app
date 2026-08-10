@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { ChevronLeft, Dumbbell, CheckCircle2, Clock, Circle, CalendarDays } from "lucide-react";
+import { ChevronLeft, Dumbbell, CheckCircle2, Clock, Circle, CalendarDays, Play, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
 import { getDrillsByUserId } from "@/app/actions/drills";
@@ -17,6 +17,28 @@ const STATUS_MAP = {
   IN_PROGRESS: { label: "取り組み中", icon: Clock,        className: "bg-blue-50 text-blue-600 border-blue-200" },
   COMPLETED:   { label: "完了",      icon: CheckCircle2, className: "bg-emerald-50 text-emerald-600 border-emerald-200" },
 } as const;
+
+/** プロトコル無しで保存されたURLでもリンク切れしないよう正規化 */
+function normalizeUrl(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+/** 参考動画リンクボタン */
+function DrillVideoLink({ videoUrl }: { videoUrl: string | null }) {
+  if (!videoUrl) return null;
+  return (
+    <a
+      href={normalizeUrl(videoUrl)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-stone-800 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-stone-700"
+    >
+      <Play className="size-3.5" />
+      参考動画を見る
+      <ExternalLink className="size-3" />
+    </a>
+  );
+}
 
 export default async function MyDrillsPage() {
   const supabase = await createClient();
@@ -78,6 +100,7 @@ export default async function MyDrillsPage() {
                                 期限：{format(drill.dueDate, "yyyy年M月d日", { locale: ja })}
                               </p>
                             )}
+                            <DrillVideoLink videoUrl={drill.videoUrl} />
                           </div>
                         </div>
                       </li>
@@ -105,6 +128,7 @@ export default async function MyDrillsPage() {
                             {drill.description && (
                               <p className="text-xs text-stone-400 leading-relaxed">{drill.description}</p>
                             )}
+                            <DrillVideoLink videoUrl={drill.videoUrl} />
                           </div>
                         </div>
                       </li>
