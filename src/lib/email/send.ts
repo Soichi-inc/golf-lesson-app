@@ -17,7 +17,8 @@ function getResend(): Resend | null {
   return _resend;
 }
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+const SANDBOX_FROM = "onboarding@resend.dev";
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || SANDBOX_FROM;
 const FALLBACK_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
 
 type SendMailOptions = {
@@ -32,6 +33,15 @@ export async function sendMail({ to, subject, html }: SendMailOptions) {
     console.warn("[sendMail] RESEND_API_KEY not configured; skipping email send");
     return { success: false, error: "メール設定が未構成です" };
   }
+  if (FROM_EMAIL === SANDBOX_FROM) {
+    // Resendのサンドボックス送信元は「Resendアカウント所有者本人の認証済み
+    // アドレス」宛にしか配信されず、それ以外の宛先はAPI側で拒否される。
+    // 本番では独自ドメインを検証して RESEND_FROM_EMAIL を設定すること。
+    console.warn(
+      `[sendMail] RESEND_FROM_EMAIL 未設定のためサンドボックス送信元(${SANDBOX_FROM})を使用中。` +
+        `Resendアカウント所有者本人以外の宛先(${to})には配信されません。`
+    );
+  }
   try {
     const { data, error } = await resend.emails.send({
       from: `奥村真由美ゴルフレッスン <${FROM_EMAIL}>`,
@@ -40,12 +50,12 @@ export async function sendMail({ to, subject, html }: SendMailOptions) {
       html,
     });
     if (error) {
-      console.error("[sendMail] Resend error:", error);
+      console.error(`[sendMail] Resend error (to: ${to}):`, error);
       return { success: false, error: error.message };
     }
     return { success: true, id: data?.id };
   } catch (err) {
-    console.error("[sendMail] unexpected error:", err);
+    console.error(`[sendMail] unexpected error (to: ${to}):`, err);
     return { success: false, error: "メール送信に失敗しました" };
   }
 }
@@ -68,26 +78,48 @@ export async function notifyAdmin({ subject, html }: { subject: string; html: st
         : [];
 
     if (recipients.length === 0) {
-      console.warn("[notifyAdmin] No admin emails found");
-      return;
+      console.error(
+        "[notifyAdmin] 送信先なし: ADMINロールのユーザーが検出できず、" +
+          "ADMIN_EMAIL も未設定のため管理者通知を送信できませんでした"
+      );
+      return { success: false, sent: 0, failed: 0 };
     }
 
     // 全ADMINに並行送信
-    const results = await Promise.allSettled(
-      recipients.map((email) => sendMail({ to: email, subject, html }))
+    // ※ sendMail は例外を投げず {success:false} を返す設計のため、allSettled の
+    //   status === "rejected" では失敗を検知できない（常に fulfilled になる）。
+    //   必ず戻り値の success を見て判定すること。
+    const results = await Promise.all(
+      recipients.map(async (email) => ({
+        email,
+        result: await sendMail({ to: email, subject, html }),
+      }))
     );
 
-    const failed = results.filter((r) => r.status === "rejected");
-    if (failed.length > 0) {
-      console.error(`[notifyAdmin] ${failed.length}/${recipients.length} emails failed`);
+    const failed = results.filter((r) => !r.result.success);
+    for (const f of failed) {
+      console.error(`[notifyAdmin] 送信失敗 ${f.email}: ${f.result.error}`);
     }
 
-    return { success: true, sent: recipients.length - failed.length };
+    const sent = results.length - failed.length;
+    if (sent === 0) {
+      console.error(
+        `[notifyAdmin] 管理者宛メールが1件も送信できませんでした（対象${recipients.length}件）`
+      );
+    }
+
+    return { success: sent > 0, sent, failed: failed.length };
   } catch (err) {
     console.error("[notifyAdmin] error:", err);
     // フォールバック送信
     if (FALLBACK_ADMIN_EMAIL) {
-      return sendMail({ to: FALLBACK_ADMIN_EMAIL, subject, html });
+      const result = await sendMail({ to: FALLBACK_ADMIN_EMAIL, subject, html });
+      return {
+        success: result.success,
+        sent: result.success ? 1 : 0,
+        failed: result.success ? 0 : 1,
+      };
     }
+    return { success: false, sent: 0, failed: 0 };
   }
 }
