@@ -296,6 +296,48 @@ export async function addSchedule(
 }
 
 /**
+ * スケジュールを更新（ADMIN専用）
+ *
+ * 一度公開した枠の日時・場所・プラン・メモをあとから直せるようにする。
+ * （以前は「新しい枠を追加して古い枠を削除」しか手段がなかった）
+ */
+export async function updateSchedule(
+  scheduleId: string,
+  input: Partial<Omit<Schedule, "id" | "createdAt" | "updatedAt">>
+): Promise<{ success: boolean; schedule?: Schedule; error?: string }> {
+  try {
+    await requireAdmin();
+    const records = await readJsonFromStorage<ScheduleRecord[]>(
+      SCHEDULES_PATH,
+      defaultSchedules
+    );
+    const idx = records.findIndex((r) => r.id === scheduleId);
+    if (idx === -1) return { success: false, error: "スケジュールが見つかりません" };
+
+    // undefined のキーで既存値を上書きしないよう除外する
+    const changes = Object.fromEntries(
+      Object.entries(input).filter(([, v]) => v !== undefined)
+    ) as Partial<Schedule>;
+
+    const current = toSchedule(records[idx]);
+    const updated: Schedule = {
+      ...current,
+      ...changes,
+      id: current.id,
+      createdAt: current.createdAt,
+      updatedAt: new Date(),
+    };
+
+    records[idx] = toScheduleRecord(updated);
+    await writeJsonToStorage(SCHEDULES_PATH, records);
+
+    return { success: true, schedule: updated };
+  } catch (err) {
+    return handleActionError(err, "スケジュールの更新に失敗しました");
+  }
+}
+
+/**
  * スケジュールを削除（ADMIN専用）
  *
  * アクティブな予約（PENDING / CONFIRMED）が紐づく枠は削除をブロックする。

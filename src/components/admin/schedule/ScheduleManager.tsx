@@ -8,7 +8,9 @@ import { CalendarDays } from "lucide-react";
 import { ScheduleCalendar } from "./ScheduleCalendar";
 import { ScheduleList } from "./ScheduleList";
 import { ScheduleCreateDialog } from "./ScheduleCreateDialog";
-import { addSchedule, deleteSchedule } from "@/app/actions/schedules";
+import { ScheduleEditDialog } from "./ScheduleEditDialog";
+import type { SchedulePayload } from "./ScheduleFormFields";
+import { addSchedule, deleteSchedule, updateSchedule } from "@/app/actions/schedules";
 import type { LessonPlan, Schedule } from "@/types";
 
 type Props = {
@@ -57,6 +59,8 @@ export function ScheduleManager({ initialSchedules, lessonPlans, bookedCounts }:
   const [saving, setSaving] = useState(false);
   // 予約が入った枠はデフォルトで一覧から隠す（トグルで表示可能）
   const [showBooked, setShowBooked] = useState(false);
+  // 編集ダイアログで開いている枠
+  const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
 
   const hydratedPlans = lessonPlans.map(hydrateLessonPlan);
 
@@ -129,6 +133,35 @@ export function ScheduleManager({ initialSchedules, lessonPlans, bookedCounts }:
       alert(result.error || "スケジュールの削除に失敗しました");
     } else {
       router.refresh();
+    }
+  }
+
+  async function handleUpdated(id: string, data: SchedulePayload) {
+    const plan = hydratedPlans.find((p) => p.id === data.lessonPlanId);
+    const before = schedules.find((s) => s.id === id);
+    if (!plan || !before) return;
+
+    // 楽観的にUI更新
+    setSchedules((prev) =>
+      prev.map((s) =>
+        s.id === id ? { ...s, ...data, lessonPlan: plan, updatedAt: new Date() } : s
+      )
+    );
+    setSaving(true);
+
+    const result = await updateSchedule(id, { ...data, lessonPlan: plan });
+
+    setSaving(false);
+
+    if (result.success && result.schedule) {
+      setSchedules((prev) =>
+        prev.map((s) => (s.id === id ? hydrateSchedule(result.schedule!) : s))
+      );
+      router.refresh();
+    } else {
+      // 失敗時はロールバック
+      setSchedules((prev) => prev.map((s) => (s.id === id ? before : s)));
+      alert(result.error || "スケジュールの更新に失敗しました");
     }
   }
 
@@ -206,9 +239,18 @@ export function ScheduleManager({ initialSchedules, lessonPlans, bookedCounts }:
           schedules={visibleSchedules}
           selectedDate={selectedDate}
           onDelete={handleDelete}
+          onEdit={setEditingSchedule}
           bookedCounts={bookedCounts}
         />
       </div>
+
+      <ScheduleEditDialog
+        schedule={editingSchedule}
+        lessonPlans={hydratedPlans}
+        hasReservations={editingSchedule ? isBooked(editingSchedule) : false}
+        onClose={() => setEditingSchedule(null)}
+        onUpdated={handleUpdated}
+      />
     </div>
   );
 }

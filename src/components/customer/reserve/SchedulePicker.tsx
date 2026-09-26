@@ -262,7 +262,11 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-xs text-stone-600 mb-1">{slot.lessonPlan.name}</p>
+                            <p className="text-xs text-stone-600 mb-1">
+                              {slot.allowAnyLocation
+                                ? "インドアレッスン（場所リクエスト可）"
+                                : slot.lessonPlan.name}
+                            </p>
                             {slot.teeOffTime && (
                               <p className="text-[11px] font-medium text-amber-600 mb-1 flex items-center gap-1">
                                 <Clock className="size-3" />ティーオフ {slot.teeOffTime}
@@ -271,7 +275,10 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
                             <div className="flex flex-wrap gap-3 text-[11px] text-stone-400">
                               {slot.allowAnyLocation ? (
                                 <span className="flex items-center gap-1 text-violet-600">
-                                  <MapPin className="size-3" />場所は予約時にお選びいただけます
+                                  <MapPin className="size-3" />
+                                  {slot.location
+                                    ? `基本会場：${slot.location}（他の場所もリクエスト可）`
+                                    : "場所は予約時にお選びいただけます"}
                                 </span>
                               ) : (
                                 slot.location && (

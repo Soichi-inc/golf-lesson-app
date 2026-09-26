@@ -18,7 +18,10 @@ export async function getInstructorNotesByUserId(
 ): Promise<InstructorNote[]> {
   await requireAdmin();
   const records = await readInstructorNoteRecords();
-  return records.filter((r) => r.userId === userId).map(toInstructorNote);
+  return records
+    .filter((r) => r.userId === userId)
+    .map(toInstructorNote)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 /** 顧客用: 公開メモのみ取得（所有者本人またはADMIN） */
@@ -32,7 +35,8 @@ export async function getPublicInstructorNotesByUserId(
   const records = await readInstructorNoteRecords();
   return records
     .filter((r) => r.userId === userId && !r.isPrivate)
-    .map(toInstructorNote);
+    .map(toInstructorNote)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 /** 指導メモを追加（ADMIN専用） */

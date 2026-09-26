@@ -36,5 +36,8 @@ export async function getInstructorNotesByUserId(
   userId: string
 ): Promise<InstructorNote[]> {
   const records = await readInstructorNoteRecords();
-  return records.filter((r) => r.userId === userId).map(toInstructorNote);
+  return records
+    .filter((r) => r.userId === userId)
+    .map(toInstructorNote)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }

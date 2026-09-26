@@ -119,7 +119,11 @@ export function ReservationForm({ schedule: rawSchedule, existingPlans = [] }: P
       requestedCourse: "",
       // インドア・場所リクエスト枠の初期値
       indoorLocationType: isIndoorFlex ? "existing" : undefined,
-      existingPlanId: "",
+      // 管理側が設定した基準プランを初期選択（お客様は変更可能）
+      existingPlanId:
+        isIndoorFlex && existingPlans.some((p) => p.id === schedule.lessonPlanId)
+          ? schedule.lessonPlanId
+          : "",
       customLocation: "",
       requestedDuration: isIndoorFlex ? 50 : undefined,
       usesTicketPack: false,

@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Clock, MapPin, Trash2, Users } from "lucide-react";
+import { Clock, MapPin, Pencil, Trash2, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,11 +42,12 @@ type Props = {
   schedules: Schedule[];
   selectedDate: Date | undefined;
   onDelete: (id: string) => void;
+  onEdit?: (schedule: Schedule) => void;
   /** スケジュールIDごとの予約状況（キャンセル除く件数） */
   bookedCounts?: Record<string, { count: number; privateLocked: boolean }>;
 };
 
-export function ScheduleList({ schedules, selectedDate, onDelete, bookedCounts }: Props) {
+export function ScheduleList({ schedules, selectedDate, onDelete, onEdit, bookedCounts }: Props) {
   const filtered = selectedDate
     ? schedules.filter(
         (s) =>
@@ -79,6 +80,7 @@ export function ScheduleList({ schedules, selectedDate, onDelete, bookedCounts }
           key={schedule.id}
           schedule={schedule}
           onDelete={onDelete}
+          onEdit={onEdit}
           activeReservationCount={bookedCounts?.[schedule.id]?.count ?? 0}
         />
       ))}
@@ -89,10 +91,12 @@ export function ScheduleList({ schedules, selectedDate, onDelete, bookedCounts }
 function ScheduleCard({
   schedule,
   onDelete,
+  onEdit,
   activeReservationCount,
 }: {
   schedule: Schedule;
   onDelete: (id: string) => void;
+  onEdit?: (schedule: Schedule) => void;
   activeReservationCount: number;
 }) {
   // 実際の予約データに基づく判定（isAvailable は管理者による手動の受付停止フラグ）
@@ -141,7 +145,9 @@ function ScheduleCard({
             </div>
 
             <p className="font-medium text-stone-800 text-sm mb-1">
-              {schedule.lessonPlan.name}
+              {schedule.allowAnyLocation
+                ? `場所リクエスト枠（基準: ${schedule.lessonPlan.name}）`
+                : schedule.lessonPlan.name}
             </p>
 
             <div className="flex flex-col gap-1 text-xs text-stone-500">
@@ -175,11 +181,24 @@ function ScheduleCard({
             )}
           </div>
 
-          {/* 右: 削除ボタン（予約が入っている枠は削除不可・サーバー側でもブロック） */}
-          <DeleteConfirm
-            onConfirm={() => onDelete(schedule.id)}
-            disabled={hasReservation}
-          />
+          {/* 右: 編集・削除ボタン（予約が入っている枠は削除不可・サーバー側でもブロック） */}
+          <div className="flex items-center gap-0.5 shrink-0">
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 text-stone-400 hover:text-stone-800 hover:bg-stone-100"
+                onClick={() => onEdit(schedule)}
+                aria-label="この枠を編集"
+              >
+                <Pencil className="size-3.5" />
+              </Button>
+            )}
+            <DeleteConfirm
+              onConfirm={() => onDelete(schedule.id)}
+              disabled={hasReservation}
+            />
+          </div>
         </div>
       </CardContent>
     </Card>
