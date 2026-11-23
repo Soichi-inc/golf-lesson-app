@@ -16,12 +16,15 @@ const PORT = Number(process.env.MOCK_BACKEND_PORT ?? 54399);
 const ADMIN_ID = "00000000-0000-4000-8000-0000000000a1";
 const CUST_A = "00000000-0000-4000-8000-0000000000c1";
 const CUST_B = "00000000-0000-4000-8000-0000000000c2";
+// 本人が書き換えられる側（user_metadata）にだけ管理者の印を付けた一般ユーザー。管理画面に入れてはいけない
+const SELF_PROMOTED = "00000000-0000-4000-8000-0000000000c3";
 
 const pw = () => "mock-" + randomBytes(9).toString("hex");
 const creds = {
   admin: { email: "mock-admin@example.test", password: pw() },
   customerA: { email: "test-customer@example.test", password: pw() },
   customerB: { email: "other-customer@example.test", password: pw() },
+  selfPromoted: { email: "self-promoted@example.test", password: pw() },
 };
 
 const baseUser = (id, email, fullName, createdAt, appMeta = {}) => ({
@@ -35,8 +38,10 @@ const users = {
   [ADMIN_ID]: baseUser(ADMIN_ID, creds.admin.email, "テスト管理者", "2026-01-01T00:00:00.000Z", { role: "ADMIN" }),
   [CUST_A]: baseUser(CUST_A, creds.customerA.email, "検証 花子", "2026-04-26T00:00:00.000Z"),
   [CUST_B]: baseUser(CUST_B, creds.customerB.email, "別人 太郎", "2026-03-01T00:00:00.000Z"),
+  [SELF_PROMOTED]: baseUser(SELF_PROMOTED, creds.selfPromoted.email, "自称 管理者", "2026-06-01T00:00:00.000Z"),
 };
-const passwords = { [creds.admin.email]: [creds.admin.password, ADMIN_ID], [creds.customerA.email]: [creds.customerA.password, CUST_A], [creds.customerB.email]: [creds.customerB.password, CUST_B] };
+users[SELF_PROMOTED].user_metadata.role = "ADMIN";
+const passwords = { [creds.admin.email]: [creds.admin.password, ADMIN_ID], [creds.customerA.email]: [creds.customerA.password, CUST_A], [creds.customerB.email]: [creds.customerB.password, CUST_B], [creds.selfPromoted.email]: [creds.selfPromoted.password, SELF_PROMOTED] };
 
 // ---------------- シードデータ ----------------
 const T0 = "2026-02-01T00:00:00.000Z";

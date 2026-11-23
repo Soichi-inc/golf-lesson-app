@@ -18,7 +18,7 @@ const supabase = createClient(
 );
 
 async function main() {
-  const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
+  const { data: { users }, error: listError } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
   if (listError) {
     console.error("Failed to list users:", listError);
     process.exit(1);

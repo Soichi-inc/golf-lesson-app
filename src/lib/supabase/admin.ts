@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { listAllUsers } from "@/lib/supabase/all-users";
+import { isAdminUser } from "@/lib/auth/role";
 
 /**
  * Supabase Admin Client (Service Role Key)
@@ -47,9 +48,8 @@ export async function setAdminRole(email: string) {
 
 /**
  * role=ADMINの全ユーザーのメールアドレスを取得
- * app_metadata.role を正とし、旧データ（user_metadata.role）も後方互換で拾う。
- * ここが古いままだと、権限チェックはADMINとして通るのに通知メールだけ届かない
- * という不整合が起きるため、認可チェックと必ず同じロジックを維持すること。
+ * 管理者の判定は認可チェックと同じ isAdminUser（app_metadata.role のみ）を使う。
+ * 判定がずれると「管理画面には入れるのに通知メールだけ届かない」不整合が起きるため。
  *
  * ⚠️ 全ユーザーを対象に探すこと。listUsers() のページ指定なし（新しい順に 50 人）で探していたため、
  * 登録者が 50 人を超えた 2026 年 8〜9 月以降、初期に作った管理者アカウントが検出されず、
@@ -65,10 +65,6 @@ export async function getAdminEmails(): Promise<string[]> {
   }
 
   return users
-    .filter(
-      (u) =>
-        (u.app_metadata?.role === "ADMIN" || u.user_metadata?.role === "ADMIN") &&
-        u.email
-    )
+    .filter((u) => isAdminUser(u) && u.email)
     .map((u) => u.email!);
 }

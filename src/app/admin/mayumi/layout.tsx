@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isAdminUser } from "@/lib/auth/role";
 import {
   AdminSidebarDesktop,
   AdminSidebarMobile,
@@ -26,9 +27,8 @@ export default async function AdminLayout({
     redirect("/auth/login?next=/admin/mayumi");
   }
 
-  // ADMINロールは app_metadata（サーバー側のみ書込可）優先、フォールバックで user_metadata も許可（移行期間用）
-  const role = user.app_metadata?.role || user.user_metadata?.role;
-  if (role !== "ADMIN") {
+  // 管理者の根拠は app_metadata だけ（user_metadata は本人が書き換えられる。詳細は lib/auth/role.ts）
+  if (!isAdminUser(user)) {
     redirect("/");
   }
 

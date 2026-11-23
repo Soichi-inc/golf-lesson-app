@@ -8,7 +8,7 @@ const supabase = createClient(
 );
 
 async function main() {
-  const { data: { users }, error } = await supabase.auth.admin.listUsers();
+  const { data: { users }, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
   if (error) {
     console.error("Error:", error);
     process.exit(1);

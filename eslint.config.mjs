@@ -25,6 +25,16 @@ const eslintConfig = defineConfig([
       "src/components/ui/**",
     ],
     rules: {
+      // 管理者の判定に user_metadata.role を使わない（本人が書き換えられるため）。lib/auth/role.ts を使う
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "MemberExpression[property.name='role'][object.property.name='user_metadata']",
+          message:
+            "user_metadata は利用者本人が書き換えられます。管理者の判定には @/lib/auth/role の isAdminUser（app_metadata.role）を使ってください。",
+        },
+      ],
       "no-restricted-imports": [
         "error",
         {

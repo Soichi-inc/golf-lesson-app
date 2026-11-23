@@ -34,7 +34,7 @@ async function main() {
     // 既に存在する場合はADMIN権限のみ付与
     if (error.message.includes("already been registered")) {
       console.log(`User ${email} already exists. Setting ADMIN role (app_metadata)...`);
-      const { data: { users } } = await supabase.auth.admin.listUsers();
+      const { data: { users } } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
       const user = users.find((u) => u.email === email);
       if (user) {
         await supabase.auth.admin.updateUserById(user.id, {

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requireUser, handleActionError } from "@/lib/auth/guard";
+import { isAdminUser } from "@/lib/auth/role";
 
 export type AccountInfo = {
   email: string;
@@ -20,7 +21,7 @@ export async function getAccountInfo(): Promise<AccountInfo | null> {
     email: user.email || "",
     displayName: user.user_metadata?.full_name || user.user_metadata?.name || "",
     phone: user.user_metadata?.phone || "",
-    role: user.app_metadata?.role || user.user_metadata?.role || "USER",
+    role: isAdminUser(user) ? "ADMIN" : "USER",
     provider: user.app_metadata?.provider || "email",
   };
 }

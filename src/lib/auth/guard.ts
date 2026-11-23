@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { storageErrorMessage } from "@/lib/storage-core";
+import { isAdminUser } from "@/lib/auth/role";
 
 export type AuthedUser = {
   id: string;
@@ -22,11 +23,8 @@ export async function requireUser(): Promise<AuthedUser> {
     throw new AuthError("ログインが必要です", 401);
   }
 
-  const role =
-    user.app_metadata?.role === "ADMIN" ||
-    user.user_metadata?.role === "ADMIN"
-      ? "ADMIN"
-      : "USER";
+  // 管理者の根拠は app_metadata だけ（user_metadata は本人が書き換えられる。詳細は lib/auth/role.ts）
+  const role = isAdminUser(user) ? "ADMIN" : "USER";
 
   return {
     id: user.id,

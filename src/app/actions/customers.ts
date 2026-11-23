@@ -7,6 +7,7 @@ import { getInstructorNotesByUserId } from "@/lib/data/instructorNotes";
 import { getScoresByUserId } from "@/lib/data/scores";
 import { getNotesByUserId } from "@/lib/data/notes";
 import { requireAdmin } from "@/lib/auth/guard";
+import { isAdminUser } from "@/lib/auth/role";
 import type { User, CustomerDetail } from "@/types";
 
 /**
@@ -36,7 +37,7 @@ export async function getCustomers(): Promise<User[]> {
   }
 
   return all
-    .filter((u) => u.user_metadata?.role !== "ADMIN" && u.app_metadata?.role !== "ADMIN")
+    .filter((u) => !isAdminUser(u))
     .map((u) => ({
       id: u.id,
       email: u.email || "",
@@ -71,7 +72,7 @@ export async function getCustomerDetail(userId: string): Promise<CustomerDetail 
   }
 
   // ADMINユーザーはカルテ対象外
-  if (user.user_metadata?.role === "ADMIN" || user.app_metadata?.role === "ADMIN") return null;
+  if (isAdminUser(user)) return null;
 
   const [reservations, drills, instructorNotes, roundScores, userNotes] = await Promise.all([
     // メール照合も併用（アカウント再登録前の予約もカルテに表示する）
