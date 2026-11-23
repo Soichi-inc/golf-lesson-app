@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { getAdminEmails } from "@/lib/supabase/admin";
+import { mergeRecipients } from "@/lib/supabase/all-users";
 
 /**
  * Resend クライアントの遅延初期化
@@ -60,12 +61,9 @@ export async function notifyAdmin({ subject, html }: { subject: string; html: st
     // Supabase Admin APIでADMINユーザーを自動検出
     const adminEmails = await getAdminEmails();
 
-    // フォールバック: Supabaseから取得できない場合は環境変数を使用
-    const recipients = adminEmails.length > 0
-      ? adminEmails
-      : FALLBACK_ADMIN_EMAIL
-        ? [FALLBACK_ADMIN_EMAIL]
-        : [];
+    // 宛先 = 検出した管理者全員 + 予備の宛先（環境変数 ADMIN_EMAIL）。重複は除く。
+    // 管理者の検出が一部でも失敗したときに、予備の宛先には必ず届くようにする
+    const recipients = mergeRecipients(adminEmails, FALLBACK_ADMIN_EMAIL);
 
     if (recipients.length === 0) {
       console.warn("[notifyAdmin] No admin emails found");
