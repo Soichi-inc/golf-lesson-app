@@ -4,6 +4,7 @@ import { Clock, Users, CheckCircle2, MapPin, ChevronRight, CreditCard, MessageCi
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getPlans, type PlanData } from "@/app/actions/plans";
+import { isAddOnPlan } from "@/lib/plan-kind";
 import { getProfile } from "@/app/actions/profile";
 
 export const metadata: Metadata = {
@@ -88,7 +89,7 @@ function IndoorLessonCard() {
               プライベートレッスン
             </h3>
             <p className="mt-2 text-sm text-stone-500 leading-relaxed">
-              スイングの課題を分析・改善。TrackMan / SPORTS BOX AI 対応。動画撮影＆フィードバック付き。
+              スイングの課題を分析・改善。TrackMan / SPORTS BOX AI 対応。レッスン中に動画を撮影し、その場でフィードバックします。
             </p>
           </div>
           <div className="text-right shrink-0">
@@ -102,7 +103,7 @@ function IndoorLessonCard() {
         <ul className="mb-5 flex flex-wrap gap-x-4 gap-y-1.5">
           {[
             "TrackMan / SPORTS BOX AI 対応",
-            "動画撮影＆フィードバック付き",
+            "レッスン中の動画撮影＆その場でフィードバック",
             "4回チケットでお得",
           ].map((h) => (
             <li key={h} className="flex items-center gap-1.5 text-xs text-stone-600">
@@ -310,8 +311,25 @@ function PlanCard({ plan }: { plan: PlanData }) {
           </span>
         </div>
 
-        {/* CTA: オンライン系は日程をLINEで調整するため、予約導線ではなくLINE誘導 */}
-        {plan.category === "ONLINE" ? (
+        {/*
+          CTA の出し分け
+          - 追加オプション: 予約フォームで選ぶものなので、予約導線へ
+          - オンライン系: 日程を LINE で調整するため LINE へ
+          - それ以外: 空き枠の確認へ
+        */}
+        {isAddOnPlan(plan) ? (
+          <>
+            <p className="mb-3 text-center text-xs text-stone-500">
+              レッスンのご予約フォームで追加できます
+            </p>
+            <Button asChild className="w-full rounded-full bg-stone-800 text-sm text-white hover:bg-stone-700">
+              <Link href="/schedule">
+                空き枠を確認する
+                <ChevronRight className="size-4 ml-1" />
+              </Link>
+            </Button>
+          </>
+        ) : plan.category === "ONLINE" ? (
           <>
             <p className="mb-3 text-center text-xs text-stone-500">
               日程はLINEにてお問い合わせください

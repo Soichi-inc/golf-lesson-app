@@ -66,7 +66,7 @@ type FormValues = z.infer<typeof formSchema>;
 const CANCEL_POLICY = `【キャンセルポリシー】
 ・7日前まで：無料キャンセル
 ・3〜6日前：レッスン料金の50%をキャンセル料として申し受けます
-・前日・当日：レッスン料金の100%をキャンセル料として申し受けます
+・2日前〜当日：レッスン料金の100%をキャンセル料として申し受けます
 
 ※やむを得ない事情の場合はご相談ください。
 ※悪天候により中止する場合があります。
@@ -788,7 +788,10 @@ export function ReservationForm({ schedule: rawSchedule, existingPlans = [] }: P
                             </span>
                           </div>
                           <p className="mt-1 text-xs text-stone-500 leading-relaxed">
-                            レッスンで撮影したスイング動画を元に、ポイントを解説。復習や自主練習に活用できます。
+                            レッスンで撮影したスイング動画をもとに、レッスン後も見返せるポイント解説をお付けします。復習や自主練習にご活用ください。
+                          </p>
+                          <p className="mt-1 text-[11px] text-stone-400 leading-relaxed">
+                            ※レッスン中の動画撮影と、その場でのフィードバックはレッスン料金に含まれています。
                           </p>
                         </div>
                       </div>

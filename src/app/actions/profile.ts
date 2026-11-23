@@ -38,8 +38,8 @@ const defaultProfile: ProfileData = {
     "初心者からシングルまで幅広く対応",
   ],
   locations: [
-    { name: "golf next24 中川店", area: "横浜" },
-    { name: "the golf house 京橋八丁堀", area: "東京" },
+    { name: "the golf house 京橋・白金高輪・武蔵小山", area: "東京" },
+    { name: "golf next24 中川・武蔵中原・藤沢善行", area: "横浜・川崎・藤沢" },
   ],
 };
 

@@ -34,7 +34,7 @@ export default function CancelPolicyPage() {
             <td>レッスン料金の50%</td>
           </tr>
           <tr>
-            <td>レッスン前日・当日</td>
+            <td>レッスン2日前〜当日</td>
             <td>レッスン料金の100%</td>
           </tr>
         </tbody>

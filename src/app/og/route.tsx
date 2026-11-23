@@ -106,7 +106,7 @@ export async function GET(request: Request) {
         >
           <span>LPGA Member</span>
           <span>TPI Certified</span>
-          <span>Yokohama / Tokyo</span>
+          <span>Tokyo / Kanagawa</span>
         </div>
 
         {/* Right accent */}

@@ -8,6 +8,7 @@ import { CustomerFooter } from "@/components/customer/Footer";
 import { HeroVideo } from "@/components/customer/HeroVideo";
 import { AnimatedSection } from "@/components/customer/AnimatedSection";
 import { getPlans, type PlanData } from "@/app/actions/plans";
+import { isAddOnPlan } from "@/lib/plan-kind";
 import { getProfile } from "@/app/actions/profile";
 
 export const metadata: Metadata = {
@@ -53,6 +54,7 @@ function LessonPlanCard({ plan, index }: { plan: PlanData; index: number }) {
   const isRound = plan.category === "ROUND";
   const isOnline = plan.category === "ONLINE" || plan.id === "plan-online";
   const isIndoor = plan.category === "REGULAR" && !isOnline;
+  const isAddOn = isAddOnPlan(plan);
   return (
     <AnimatedSection delay={index * 0.15} className="group">
       <div className="relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-stone-200/60 transition-all duration-500 hover:shadow-xl hover:shadow-stone-200/50 hover:-translate-y-1">
@@ -62,7 +64,7 @@ function LessonPlanCard({ plan, index }: { plan: PlanData; index: number }) {
           <div className="mb-5 flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <span className={`mb-2 inline-block text-[10px] font-medium tracking-widest uppercase ${isRound ? "text-amber-600" : isOnline ? "text-blue-600" : "text-stone-400"}`}>
-                {isRound ? "Round Lesson" : isOnline ? "Online Lesson" : "Indoor Lesson"}
+                {isRound ? "Round Lesson" : isAddOn ? "Option" : isOnline ? "Online Lesson" : "Indoor Lesson"}
               </span>
               <h3 className="text-lg font-medium tracking-wide text-stone-800">{plan.name}</h3>
             </div>
@@ -97,7 +99,20 @@ function LessonPlanCard({ plan, index }: { plan: PlanData; index: number }) {
               定員{plan.maxAttendees}名
             </span>
           </div>
-          {isOnline ? (
+          {isAddOn ? (
+            /* 追加オプションは予約フォームで選ぶものなので、予約導線へ案内する */
+            <>
+              <p className="mb-3 text-center text-xs text-stone-400">
+                レッスンのご予約フォームで追加できます
+              </p>
+              <Button
+                asChild
+                className="w-full rounded-full bg-stone-800 hover:bg-stone-700 text-white text-sm font-light tracking-wider transition-all duration-500 hover:shadow-lg hover:shadow-stone-300/50"
+              >
+                <Link href="/schedule">空き枠を確認する</Link>
+              </Button>
+            </>
+          ) : isOnline ? (
             /* オンライン系は日程をLINEで調整するため、予約導線ではなくLINE誘導 */
             <>
               <p className="mb-3 text-center text-xs text-stone-400">
@@ -148,7 +163,7 @@ const INDOOR_SUMMARY_PLAN: PlanData = {
   isPublished: true,
   highlights: [
     "TrackMan / SPORTS BOX AI 対応",
-    "動画撮影＆フィードバック付き",
+    "レッスン中の動画撮影＆その場でフィードバック",
     "4回チケットでお得",
   ],
   details: [
@@ -339,7 +354,7 @@ export default async function HomePage() {
                 {/* Locations */}
                 {locations.length > 0 && (
                   <div className="mb-10">
-                    <p className="mb-4 text-[10px] font-medium tracking-[0.4em] text-white/30 uppercase">Locations — Yokohama / Tokyo</p>
+                    <p className="mb-4 text-[10px] font-medium tracking-[0.4em] text-white/30 uppercase">Locations — Tokyo / Kanagawa</p>
                     <ul className="flex flex-col gap-4">
                       {locations.map(({ name, area }) => (
                         <li key={name} className="flex items-start gap-3 text-sm">

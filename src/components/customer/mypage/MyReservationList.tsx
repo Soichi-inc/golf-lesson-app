@@ -378,7 +378,7 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
                     <ul className="space-y-0.5">
                       <li>・7日前まで：無料キャンセル（マイページから可能）</li>
                       <li>・3〜6日前：レッスン料金の50%（LINEでご連絡）</li>
-                      <li>・前日・当日：レッスン料金の100%（LINEでご連絡）</li>
+                      <li>・2日前〜当日：レッスン料金の100%（LINEでご連絡）</li>
                     </ul>
                   </div>
                 </div>

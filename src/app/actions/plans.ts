@@ -40,7 +40,7 @@ const defaultPlans: PlanData[] = [
     highlights: [
       "スイングの課題を分析・改善",
       "TrackMan / SPORTS BOX AI 分析対応",
-      "動画撮影＆フィードバック付き",
+      "レッスン中の動画撮影＆その場でフィードバック",
     ],
     details: [
       "golf next24　+¥2,200（80分）",
