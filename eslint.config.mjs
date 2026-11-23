@@ -13,6 +13,46 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    // 日時の表示・日付の判定は必ず日本時間で行う。
+    // サーバー（Vercel）は世界標準時で動くため、date-fns の関数を直接使うと
+    // 時刻が 9 時間ずれたり、日本時間の 0〜9 時に「今日」が前日扱いになったりする。
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: [
+      "src/lib/datetime.ts",
+      "src/lib/datetime.test.ts",
+      "src/lib/email/templates.ts",
+      "src/components/ui/**",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "date-fns",
+              importNames: [
+                "format",
+                "isSameDay",
+                "isSameMonth",
+                "isToday",
+                "isTomorrow",
+                "isYesterday",
+                "startOfDay",
+                "endOfDay",
+                "startOfMonth",
+                "endOfMonth",
+                "differenceInCalendarDays",
+                "differenceInDays",
+              ],
+              message:
+                "日時は日本時間で扱います。@/lib/datetime の関数（formatJst / jstDateKey / isSameJstDay など）を使ってください。",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

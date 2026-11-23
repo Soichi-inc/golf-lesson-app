@@ -1,9 +1,8 @@
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import { BookOpen, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { UserNote } from "@/types";
+import { formatJst } from "@/lib/datetime";
 
 type Props = {
   notes: UserNote[];
@@ -46,9 +45,7 @@ export function UserNoteList({ notes }: Props) {
                   </Badge>
                 )}
                 <span className="text-[11px] text-stone-400">
-                  {format(new Date(note.createdAt), "yyyy/MM/dd HH:mm", {
-                    locale: ja,
-                  })}
+                  {formatJst(new Date(note.createdAt), "yyyy/MM/dd HH:mm")}
                 </span>
               </div>
 

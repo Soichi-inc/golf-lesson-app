@@ -1,6 +1,5 @@
 "use server";
 
-import { differenceInCalendarDays } from "date-fns";
 import type { Reservation, ReservationStatus, Schedule } from "@/types";
 import { getSchedules } from "@/app/actions/schedules";
 import { sendMail, notifyAdmin } from "@/lib/email/send";
@@ -15,6 +14,7 @@ import {
   type ReservationFlexInfo,
 } from "@/lib/email/templates";
 import { requireAdmin, requireUser, handleActionError } from "@/lib/auth/guard";
+import { jstCalendarDaysBetween } from "@/lib/datetime";
 import {
   readReservationRecords,
   getAllReservations as _getAllReservations,
@@ -142,10 +142,9 @@ export async function cancelReservationByCustomer(
     const hasDateInfo = !!liveSchedule || !!record.scheduleSnapshot;
 
     if (hasDateInfo) {
-      const daysBefore = differenceInCalendarDays(
-        new Date(schedule.startAt),
-        new Date()
-      );
+      // 「7日前まで」は日本時間の暦日で数える（サーバーは世界標準時で動くため、
+      // そのまま数えると日本時間の 0〜9 時に 1 日ずれる）
+      const daysBefore = jstCalendarDaysBetween(new Date(), schedule.startAt);
 
       if (daysBefore < 7) {
         return {

@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import { CheckCircle2, XCircle, Clock, CalendarDays, MapPin, Loader2, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +19,7 @@ import {
 import { updateReservationStatus, approveReservation, rejectReservation, completeReservation } from "@/app/actions/reservations";
 import { callAction } from "@/lib/client/call-action";
 import type { Reservation } from "@/types";
+import { formatJst } from "@/lib/datetime";
 
 const STATUS_MAP: Record<
   Reservation["status"],
@@ -79,14 +78,14 @@ function ReservationCard({
             </span>
             <span className="flex items-center gap-1.5">
               <CalendarDays className="size-3 shrink-0" />
-              {format(new Date(rsv.schedule.startAt), "yyyy年M月d日（E） HH:mm", { locale: ja })} –{" "}
+              {formatJst(new Date(rsv.schedule.startAt), "yyyy年M月d日（E） HH:mm")} –{" "}
               {(() => {
                 // 場所リクエスト・任意場所で 70分指定の場合は実際の終了時刻を表示
                 const start = new Date(rsv.schedule.startAt);
                 const end = rsv.requestedDuration
                   ? new Date(start.getTime() + rsv.requestedDuration * 60 * 1000)
                   : new Date(rsv.schedule.endAt);
-                return format(end, "HH:mm");
+                return formatJst(end, "HH:mm");
               })()}
               {rsv.requestedDuration && (
                 <span className="text-violet-700 font-medium">

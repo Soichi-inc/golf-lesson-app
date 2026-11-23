@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, CheckCircle2 } from "lucide-react";
+import { AuthLogo } from "@/components/customer/AuthLogo";
 
 const schema = z.object({
   email: z.string().email("メールアドレスの形式が正しくありません"),
@@ -71,17 +72,7 @@ export default function ForgotPasswordForm() {
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
-        <Link
-          href="/"
-          className="inline-flex flex-col items-center leading-none mb-6"
-        >
-          <span className="text-[9px] tracking-[0.25em] text-stone-400 uppercase">
-            Pro Golf
-          </span>
-          <span className="text-xl font-semibold text-stone-800 tracking-tight">
-            Lesson
-          </span>
-        </Link>
+        <AuthLogo />
         <h1 className="text-2xl font-light tracking-wide text-stone-800">
           パスワード再設定
         </h1>

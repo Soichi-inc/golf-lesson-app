@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { format, isSameDay, isBefore, startOfDay } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Clock, MapPin, Users, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Schedule } from "@/types";
+import {
+  calendarDateKey,
+  formatCalendarDate,
+  formatJst,
+  jstCalendarDate,
+  jstDateKey,
+} from "@/lib/datetime";
 
 type CategoryFilter = "ALL" | "REGULAR" | "ROUND";
 
@@ -50,39 +56,44 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
 
-  const today = startOfDay(new Date());
+  // 日付の判定はすべて日本時間で行う（サーバーは世界標準時で動くため。詳細は lib/datetime.ts）
+  const [nowMs] = useState(() => Date.now());
+  const todayKey = jstDateKey(nowMs);
 
-  // フィルター適用済みのスケジュール
-  const filtered = schedules.filter(
-    (s) =>
-      s.isAvailable &&
-      (categoryFilter === "ALL" || s.lessonPlan.category === categoryFilter)
-  );
+  /** これから予約できる枠か（公開中で、開始時刻を過ぎていない） */
+  const isBookable = (s: Schedule) => s.isAvailable && s.startAt.getTime() > nowMs;
+  const matchesCategory = (s: Schedule, filter: CategoryFilter) =>
+    filter === "ALL" || s.lessonPlan.category === filter;
+
+  const bookable = schedules.filter(isBookable);
+  const filtered = bookable.filter((s) => matchesCategory(s, categoryFilter));
+
+  // カレンダーで空き枠がある日（日本時間の日付）
+  const availableDateKeys = new Set(filtered.map((s) => jstDateKey(s.startAt)));
+  const hasAvailable = (cell: Date) => availableDateKeys.has(calendarDateKey(cell));
 
   // 選択日の空き枠
   const daySlots = selectedDate
-    ? filtered.filter((s) => isSameDay(s.startAt, selectedDate))
+    ? filtered
+        .filter((s) => jstDateKey(s.startAt) === calendarDateKey(selectedDate))
+        .sort((a, b) => a.startAt.getTime() - b.startAt.getTime())
     : [];
 
-  // カレンダーで空き枠がある日（今日以降）
-  const availableDates = filtered
-    .filter((s) => !isBefore(startOfDay(s.startAt), today))
-    .map((s) => s.startAt);
-
-  function hasAvailable(date: Date) {
-    return availableDates.some((d) => isSameDay(d, date));
-  }
+  // 最初に表示する月: いちばん近い空き枠のある月（今月に空きが無いとき、空の月を見せない）
+  const firstBookable = [...bookable].sort(
+    (a, b) => a.startAt.getTime() - b.startAt.getTime()
+  )[0];
+  const calendarToday = jstCalendarDate(nowMs);
+  const initialMonth = firstBookable ? jstCalendarDate(firstBookable.startAt) : calendarToday;
 
   function handleFilterChange(value: CategoryFilter) {
     setCategoryFilter(value);
     setSelectedScheduleId(null);
     // 選択中の日付にフィルター後の枠がなければ日付選択もリセット
     if (selectedDate) {
-      const hasSlots = schedules.some(
-        (s) =>
-          s.isAvailable &&
-          isSameDay(s.startAt, selectedDate) &&
-          (value === "ALL" || s.lessonPlan.category === value)
+      const selectedKey = calendarDateKey(selectedDate);
+      const hasSlots = bookable.some(
+        (s) => jstDateKey(s.startAt) === selectedKey && matchesCategory(s, value)
       );
       if (!hasSlots) {
         setSelectedDate(undefined);
@@ -96,26 +107,10 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
   }
 
   // フィルター別の件数
-  const countAll = schedules.filter(
-    (s) => s.isAvailable && !isBefore(startOfDay(s.startAt), today)
-  ).length;
-  const countRegular = schedules.filter(
-    (s) =>
-      s.isAvailable &&
-      s.lessonPlan.category === "REGULAR" &&
-      !isBefore(startOfDay(s.startAt), today)
-  ).length;
-  const countRound = schedules.filter(
-    (s) =>
-      s.isAvailable &&
-      s.lessonPlan.category === "ROUND" &&
-      !isBefore(startOfDay(s.startAt), today)
-  ).length;
-
   const countMap: Record<CategoryFilter, number> = {
-    ALL: countAll,
-    REGULAR: countRegular,
-    ROUND: countRound,
+    ALL: bookable.length,
+    REGULAR: bookable.filter((s) => s.lessonPlan.category === "REGULAR").length,
+    ROUND: bookable.filter((s) => s.lessonPlan.category === "ROUND").length,
   };
 
   return (
@@ -133,13 +128,13 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
       </div>
 
       {/* カテゴリフィルター */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {filterOptions.map(({ value, label }) => (
           <button
             key={value}
             onClick={() => handleFilterChange(value)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all",
+              "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-all sm:px-4",
               categoryFilter === value
                 ? value === "ROUND"
                   ? "bg-amber-500 text-white shadow-sm"
@@ -181,8 +176,11 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
               setSelectedScheduleId(null);
             }}
             locale={ja}
+            today={calendarToday}
+            defaultMonth={initialMonth}
+            startMonth={calendarToday}
             disabled={(date) =>
-              isBefore(startOfDay(date), today) || !hasAvailable(date)
+              calendarDateKey(date) < todayKey || !hasAvailable(date)
             }
             modifiers={{ hasSlot: (date) => hasAvailable(date) }}
             modifiersClassNames={{
@@ -207,7 +205,7 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
             <div className="flex h-full min-h-[200px] items-center justify-center text-center">
               <div>
                 <p className="text-sm font-medium text-stone-600 mb-1">
-                  {format(selectedDate, "M月d日（E）", { locale: ja })}
+                  {formatCalendarDate(selectedDate, "M月d日（E）")}
                 </p>
                 <p className="text-xs text-stone-400">この日の空き枠はありません</p>
               </div>
@@ -215,7 +213,7 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
           ) : (
             <div className="space-y-4">
               <h3 className="text-sm font-medium text-stone-700">
-                {format(selectedDate, "M月d日（E）", { locale: ja })}の空き枠
+                {formatCalendarDate(selectedDate, "M月d日（E）")}の空き枠
                 <span className="ml-2 text-xs font-normal text-stone-400">
                   {daySlots.length}件
                 </span>
@@ -240,7 +238,7 @@ export function SchedulePicker({ schedules: rawSchedules }: Props) {
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-1.5">
                               <span className="font-semibold text-stone-800 text-sm">
-                                {format(slot.startAt, "HH:mm")} – {format(slot.endAt, "HH:mm")}
+                                {formatJst(slot.startAt, "HH:mm")} – {formatJst(slot.endAt, "HH:mm")}
                               </span>
                               <Badge
                                 variant="outline"

@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   title: "レッスンプラン管理",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminContentPlansPage() {
   const plans = await getPlans();
 

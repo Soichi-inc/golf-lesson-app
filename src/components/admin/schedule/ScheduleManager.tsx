@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
+import {
+  calendarDateKey,
+  formatCalendarDate,
+  jstCalendarDate,
+  jstDateKey,
+} from "@/lib/datetime";
 import { CalendarDays } from "lucide-react";
 import { ScheduleCalendar } from "./ScheduleCalendar";
 import { ScheduleList } from "./ScheduleList";
@@ -54,8 +58,8 @@ export function ScheduleManager({ initialSchedules, lessonPlans, bookedCounts }:
   const [schedules, setSchedules] = useState<Schedule[]>(
     initialSchedules.map(hydrateSchedule)
   );
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    new Date()
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(() =>
+    jstCalendarDate()
   );
   const [saving, setSaving] = useState(false);
   // 予約が入った枠はデフォルトで一覧から隠す（トグルで表示可能）
@@ -170,10 +174,7 @@ export function ScheduleManager({ initialSchedules, lessonPlans, bookedCounts }:
 
   const displayedCount = selectedDate
     ? visibleSchedules.filter(
-        (s) =>
-          s.startAt.getFullYear() === selectedDate.getFullYear() &&
-          s.startAt.getMonth() === selectedDate.getMonth() &&
-          s.startAt.getDate() === selectedDate.getDate()
+        (s) => jstDateKey(s.startAt) === calendarDateKey(selectedDate)
       ).length
     : visibleSchedules.length;
 
@@ -196,7 +197,7 @@ export function ScheduleManager({ initialSchedules, lessonPlans, bookedCounts }:
             <CalendarDays className="size-4 text-stone-500" />
             <h2 className="text-sm font-medium text-stone-700">
               {selectedDate
-                ? format(selectedDate, "M月d日（E）", { locale: ja })
+                ? formatCalendarDate(selectedDate, "M月d日（E）")
                 : "すべての空き枠"}
               <span className="ml-2 text-stone-400 font-normal">
                 {displayedCount}件

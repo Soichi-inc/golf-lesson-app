@@ -54,6 +54,13 @@ export async function submitReservation(input: ReserveInput) {
     if (!schedule || !schedule.isAvailable) {
       return { success: false, error: "指定のスケジュールが見つかりません" };
     }
+    // 開始時刻を過ぎた枠は受け付けない（古い画面や直接の URL から申し込めないように）
+    if (new Date(schedule.startAt).getTime() <= Date.now()) {
+      return {
+        success: false,
+        error: "この枠の受付は終了しました。お手数ですが、別の日時をお選びください。",
+      };
+    }
 
     const isRound = schedule.lessonPlan.category === "ROUND";
     const isIndoorFlex = !isRound && schedule.allowAnyLocation;

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
+import { AuthLogo } from "@/components/customer/AuthLogo";
 
 const registerSchema = z
   .object({
@@ -120,12 +121,14 @@ export default function RegisterPage() {
         <div className="w-full max-w-sm text-center">
           <CheckCircle2 className="mx-auto size-14 text-green-500 mb-4" />
           <h1 className="text-xl font-light tracking-wide text-stone-800 mb-2">
-            登録が完了しました
+            確認メールをお送りしました
           </h1>
-          <p className="text-sm text-stone-500 mb-6">
-            確認メールをお送りしました。
-            <br />
-            メール内のリンクをクリックして登録を完了してください。
+          <p className="text-sm text-stone-500 mb-3 leading-relaxed">
+            ご入力のメールアドレスに確認メールをお送りしました。
+            メール内のリンクを開くと、登録が完了します。
+          </p>
+          <p className="text-xs text-stone-400 mb-6 leading-relaxed">
+            メールが届かない場合は、迷惑メールフォルダをご確認ください。
           </p>
           <Button
             asChild
@@ -143,10 +146,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm">
         {/* ロゴ */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex flex-col items-center leading-none mb-6">
-            <span className="text-[9px] tracking-[0.25em] text-stone-400 uppercase">Pro Golf</span>
-            <span className="text-xl font-semibold text-stone-800 tracking-tight">Lesson</span>
-          </Link>
+          <AuthLogo />
           <h1 className="text-2xl font-light tracking-wide text-stone-800">新規登録</h1>
           <p className="mt-2 text-sm text-stone-500">アカウントを作成してください</p>
         </div>

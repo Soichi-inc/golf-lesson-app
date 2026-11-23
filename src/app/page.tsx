@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Award, MapPin, Clock, Users, CheckCircle2, Instagram, Youtube, MessageCircle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -154,7 +155,7 @@ const INDOOR_SUMMARY_PLAN: PlanData = {
     "THE GOLF HOUSE　50分 ¥20,000",
     "GOLF NEXT24　50分 ¥17,000 / 70分 ¥23,000",
     "任意の場所　50分 ¥15,500 / 70分 ¥21,000",
-    "4回チケットでお得（最大1回あたり ¥14,000〜）",
+    "4回チケットでお得（1回あたり ¥14,000〜）",
   ],
 };
 
@@ -183,7 +184,9 @@ export default async function HomePage() {
             <AnimatedSection>
               <p className="mb-3 text-center text-[10px] font-medium tracking-[0.5em] text-[#b8945f] uppercase">Philosophy</p>
               <h2 className="mb-4 text-center text-3xl font-extralight tracking-wider text-stone-800 sm:text-4xl">
-                あなたのための<span className="text-[#b8945f]">スイング</span>を。
+                あなたのための
+                <br className="sm:hidden" />
+                <span className="text-[#b8945f]">スイング</span>を。
               </h2>
               <div className="mx-auto mb-16 h-[1px] w-12 bg-[#b8945f]/40 sm:mb-20" />
             </AnimatedSection>
@@ -223,20 +226,38 @@ export default async function HomePage() {
             </AnimatedSection>
 
             {/* Masonry-style grid */}
+            {/*
+              スマホ: 1 枚目を横いっぱい、残り 4 枚を 2 列に並べる（3 枚目の横が空かないように）
+              PC: 1 枚目を左に大きく、残り 4 枚を右に 2×2 で並べる
+            */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
               {[
-                { src: "/lesson-1.jpg", alt: "レッスン風景", span: "sm:col-span-2 sm:row-span-2" },
-                { src: "/lesson-2.jpg", alt: "スイング指導", span: "" },
-                { src: "/lesson-3.jpg", alt: "フォーム確認", span: "" },
-                { src: "/lesson-4.jpg", alt: "スイング練習", span: "col-span-2 sm:col-span-1" },
-                { src: "/lesson-5.jpg", alt: "スタジオレッスン", span: "col-span-2 sm:col-span-1" },
+                { src: "/lesson-1.jpg", alt: "レッスン風景", large: true },
+                { src: "/lesson-2.jpg", alt: "スイング指導", large: false },
+                { src: "/lesson-3.jpg", alt: "フォーム確認", large: false },
+                { src: "/lesson-4.jpg", alt: "スイング練習", large: false },
+                { src: "/lesson-5.jpg", alt: "スタジオレッスン", large: false },
               ].map((img, i) => (
-                <AnimatedSection key={img.src} delay={i * 0.1} className={`${img.span}`}>
-                  <div className="group relative overflow-hidden rounded-xl aspect-[3/4] sm:aspect-auto sm:h-full min-h-[200px]">
-                    <img
+                <AnimatedSection
+                  key={img.src}
+                  delay={i * 0.1}
+                  className={img.large ? "col-span-2 sm:row-span-2" : ""}
+                >
+                  <div
+                    className={`group relative overflow-hidden rounded-xl ${
+                      img.large ? "aspect-[4/5] sm:aspect-auto sm:h-full" : "aspect-[3/4]"
+                    }`}
+                  >
+                    <Image
                       src={img.src}
                       alt={img.alt}
-                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      fill
+                      sizes={
+                        img.large
+                          ? "(min-width: 1280px) 600px, (min-width: 640px) 50vw, 100vw"
+                          : "(min-width: 1280px) 300px, (min-width: 640px) 25vw, 50vw"
+                      }
+                      className="object-cover transition-transform duration-700 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-black/10 transition-all duration-500 group-hover:bg-black/0" />
                   </div>
@@ -258,10 +279,12 @@ export default async function HomePage() {
                 <div className="relative">
                   <div className="absolute -inset-3 rounded-2xl bg-gradient-to-br from-[#b8945f]/20 to-transparent blur-xl" />
                   <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl ring-1 ring-white/10">
-                    <img
+                    <Image
                       src="/mayumi.jpg"
                       alt="奥村真由美プロ"
-                      className="h-full w-full object-cover object-top"
+                      fill
+                      sizes="300px"
+                      className="object-cover object-top"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-stone-900/40 to-transparent" />
                   </div>
@@ -364,7 +387,7 @@ export default async function HomePage() {
             <AnimatedSection>
               <p className="mb-3 text-center text-[10px] font-medium tracking-[0.5em] text-[#b8945f] uppercase">Lesson Plan</p>
               <h2 className="mb-4 text-center text-3xl font-extralight tracking-wider text-stone-800 sm:text-4xl">レッスンプラン</h2>
-              <p className="mb-6 text-center text-sm font-light text-stone-400">お支払い：当日会場にて カード決済（Square）/ 現金 / PayPay / 銀行振込</p>
+              <p className="mb-6 text-center text-sm font-light text-stone-400">お支払い：当日会場にて カード決済（Square）/ 現金 / PayPay（銀行振込は事前にお願いします）</p>
               <div className="mx-auto mb-16 h-[1px] w-12 bg-[#b8945f]/40 sm:mb-20" />
             </AnimatedSection>
 
@@ -399,7 +422,9 @@ export default async function HomePage() {
             <AnimatedSection>
               <p className="mb-4 text-[10px] font-medium tracking-[0.5em] text-[#b8945f] uppercase">Book a Lesson</p>
               <h2 className="mb-6 text-3xl font-extralight tracking-wider text-white sm:text-4xl">
-                まずは気軽に始めてみませんか
+                まずは気軽に
+                <br className="sm:hidden" />
+                始めてみませんか
               </h2>
               <p className="mx-auto mb-12 max-w-md text-sm font-light leading-relaxed text-stone-400">
                 空き枠を確認して、あなたのペースで始めましょう。

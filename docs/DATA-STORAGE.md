@@ -67,6 +67,8 @@ npm run dev -- --port 3111
 - 送信されたメール・保存されたデータは `http://127.0.0.1:54399/__mock/state` で確認できます
 - 通信障害の再現: `curl -X POST http://127.0.0.1:54399/__mock/mode -H 'content-type: application/json' -d '{"storageReadFail":true}'`
   （`storageWriteFail` / `revoked`（ログイン切れ）も同様。`false` で解除）
+- 本番のサーバーは世界標準時（UTC）で動いています。日時の表示を確認するときは、ターミナル 2 のコマンドの先頭に
+  `TZ=UTC` を付けて起動すると本番と同じ条件になります（日時は必ず `src/lib/datetime.ts` の関数で日本時間に直すこと）
 - 終わったら `rm -rf .next/dev`（疑似環境向けのビルドを残さない）
 
 ## 本番の保存経路の確認（デプロイ後）

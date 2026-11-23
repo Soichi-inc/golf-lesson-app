@@ -98,6 +98,21 @@ test("壊れたファイル・想定外の形はエラーにする", async () =>
   );
 });
 
+test("フレームワークの制御用の例外は、再試行も包み直しもせずそのまま通す", async () => {
+  const driver = new FakeDriver();
+  driver.seed(FILE, [{ id: "a" }]);
+  const bailout = Object.assign(new Error("Dynamic server usage"), { digest: "DYNAMIC_SERVER_USAGE" });
+  const download = driver.download.bind(driver);
+  driver.download = async (path) => {
+    await download(path);
+    throw bailout;
+  };
+  const store = createJsonStore(driver, FAST);
+
+  await assert.rejects(() => store.read<Row[]>(FILE, []), (e) => e === bailout);
+  assert.equal(driver.calls.download, 1, "再試行してはいけない");
+});
+
 // ---------------------------------------------------------------------------
 // 保存（今回の事故の再現と防止）
 // ---------------------------------------------------------------------------

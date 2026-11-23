@@ -4,8 +4,6 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import { BookOpen, Plus, Trash2, Tag, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +20,7 @@ import {
 import type { UserNote } from "@/types";
 import { addNote as addNoteAction, deleteNote as deleteNoteAction } from "@/app/actions/notes";
 import { callAction } from "@/lib/client/call-action";
+import { formatJst } from "@/lib/datetime";
 
 const noteSchema = z.object({
   title: z.string().max(100).optional(),
@@ -274,7 +273,7 @@ export function MyNoteSection({ notes: initialNotes, userId }: Props) {
                   )}
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     <span className="text-[11px] text-stone-400">
-                      {format(note.createdAt, "yyyy年M月d日", { locale: ja })}
+                      {formatJst(note.createdAt, "yyyy年M月d日")}
                     </span>
                     {note.category && (
                       <Badge

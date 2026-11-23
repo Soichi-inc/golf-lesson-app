@@ -83,7 +83,10 @@ function IndoorLessonCard() {
             <Badge variant="outline" className="mb-2 text-[10px] border-stone-200 bg-stone-50 text-stone-600">
               インドアレッスン
             </Badge>
-            <h3 className="text-xl font-semibold text-stone-800">マンツーマン プライベートレッスン</h3>
+            <h3 className="text-xl font-semibold text-stone-800">
+              マンツーマン <br className="sm:hidden" />
+              プライベートレッスン
+            </h3>
             <p className="mt-2 text-sm text-stone-500 leading-relaxed">
               スイングの課題を分析・改善。TrackMan / SPORTS BOX AI 対応。動画撮影＆フィードバック付き。
             </p>
@@ -197,16 +200,19 @@ function IndoorLessonCard() {
 
         {/* 任意の場所の補足 */}
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/40 p-4">
-          <div className="flex items-start gap-2">
-            <MessageCircle className="size-4 text-amber-600 mt-0.5 shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-stone-800 mb-1">上記以外の場所でも受講可能</p>
-              <p className="text-xs text-stone-600 leading-relaxed">
-                ご希望の練習場・スタジオでもレッスンを承ります（任意の場所枠）。
-                まずはLINEまたは予約フォームよりご相談ください。
-              </p>
+          {/* スマホでは文章の下にボタンを置く（横に並べると文章が極端に細くなるため） */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-2">
+            <div className="flex flex-1 items-start gap-2">
+              <MessageCircle className="size-4 text-amber-600 mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-stone-800 mb-1">上記以外の場所でも受講可能</p>
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  ご希望の練習場・スタジオでもレッスンを承ります（任意の場所枠）。
+                  まずはLINEまたは予約フォームよりご相談ください。
+                </p>
+              </div>
             </div>
-            <Button asChild size="sm" className="rounded-full bg-[#06C755] hover:bg-[#05b04c] text-white text-xs gap-1 shrink-0">
+            <Button asChild size="sm" className="ml-6 self-start rounded-full bg-[#06C755] hover:bg-[#05b04c] text-white text-xs gap-1 sm:ml-0 sm:shrink-0">
               <Link href={LINE_OFFICIAL_URL} target="_blank" rel="noopener noreferrer">
                 <MessageCircle className="size-3.5" />
                 LINE相談

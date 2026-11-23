@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { CustomerKarte } from "@/components/admin/customers/CustomerKarte";
 import { getCustomerDetail } from "@/app/actions/customers";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
+import { formatJst } from "@/lib/datetime";
 
 export const metadata: Metadata = {
   title: "顧客カルテ",
@@ -85,7 +84,7 @@ export default async function AdminCustomerDetailPage({ params }: Props) {
               <span className="flex items-center gap-2">
                 <CalendarDays className="size-3.5" />
                 登録日:{" "}
-                {format(new Date(customer.createdAt), "yyyy年M月d日", { locale: ja })}
+                {formatJst(new Date(customer.createdAt), "yyyy年M月d日")}
               </span>
             </div>
           </div>

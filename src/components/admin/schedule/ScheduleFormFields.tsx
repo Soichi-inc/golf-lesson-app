@@ -2,7 +2,7 @@
 
 import type { UseFormReturn } from "react-hook-form";
 import { z } from "zod";
-import { format } from "date-fns";
+import { formatJst, jstDateTime } from "@/lib/datetime";
 import { Sparkles } from "lucide-react";
 import {
   FormControl,
@@ -70,7 +70,8 @@ export function buildSchedulePayload(
   values: ScheduleFormValues,
   plan: LessonPlan
 ): SchedulePayload {
-  const startAt = new Date(`${values.date}T${values.startTime}:00`);
+  // 入力は日本時間の日付・時刻として扱う（端末のタイムゾーン設定に左右されない）
+  const startAt = jstDateTime(values.date, values.startTime);
   const endAt = new Date(startAt.getTime() + plan.duration * 60 * 1000);
   return {
     lessonPlanId: plan.id,
@@ -89,8 +90,8 @@ export function scheduleToFormValues(schedule: Schedule): ScheduleFormValues {
   return {
     allowAnyLocation: schedule.allowAnyLocation,
     lessonPlanId: schedule.lessonPlanId,
-    date: format(schedule.startAt, "yyyy-MM-dd"),
-    startTime: format(schedule.startAt, "HH:mm"),
+    date: formatJst(schedule.startAt, "yyyy-MM-dd"),
+    startTime: formatJst(schedule.startAt, "HH:mm"),
     teeOffTime: schedule.teeOffTime ?? "",
     location: schedule.location ?? "",
     note: schedule.note ?? "",

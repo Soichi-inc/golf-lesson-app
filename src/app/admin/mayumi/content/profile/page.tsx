@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   title: "プロフィール編集",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminContentProfilePage() {
   const profile = await getProfile();
 

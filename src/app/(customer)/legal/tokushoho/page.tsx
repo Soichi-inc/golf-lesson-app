@@ -10,7 +10,7 @@ export default function TokushohoPage() {
     <>
       <h1>特定商取引法に基づく表記</h1>
 
-      <table>
+      <table className="legal-definition">
         <tbody>
           <tr>
             <th>事業者名</th>
@@ -27,9 +27,8 @@ export default function TokushohoPage() {
           <tr>
             <th>販売価格</th>
             <td>
-              各レッスンプランのページに記載の金額（税込）
-              <br />
-              例：プライベートレッスン 50分 ¥13,000
+              <a href="/lessons">レッスンプラン</a>
+              のページに記載の金額（税込）
             </td>
           </tr>
           <tr>
@@ -49,11 +48,12 @@ export default function TokushohoPage() {
                 <li>現金</li>
                 <li>PayPay</li>
               </ul>
+              銀行振込もご利用いただけます（事前にお振込みください）。
             </td>
           </tr>
           <tr>
             <th>支払時期</th>
-            <td>レッスン当日</td>
+            <td>レッスン当日（銀行振込の場合はレッスン前まで）</td>
           </tr>
           <tr>
             <th>サービス提供時期</th>

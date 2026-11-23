@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { format } from "date-fns";
+import { calendarDateKey } from "@/lib/datetime";
 import { Plus } from "lucide-react";
 import {
   Dialog,
@@ -38,7 +38,7 @@ export function ScheduleCreateDialog({ lessonPlans, defaultDate, onCreated }: Pr
     defaultValues: {
       allowAnyLocation: false,
       lessonPlanId: "",
-      date: defaultDate ? format(defaultDate, "yyyy-MM-dd") : "",
+      date: defaultDate ? calendarDateKey(defaultDate) : "",
       startTime: "10:00",
       teeOffTime: "",
       location: "",

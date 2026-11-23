@@ -1,13 +1,12 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
 
 export function HeroVideo() {
   const ref = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
 
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -17,7 +16,9 @@ export function HeroVideo() {
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
   const scale = useTransform(scrollYProgress, [0, 0.5], [1, 1.1]);
   const textY = useTransform(scrollYProgress, [0, 0.5], [0, -80]);
-  const overlayOpacity = useTransform(scrollYProgress, [0, 0.3], [0.55, 0.8]);
+  // 明るい映像（空・芝・砂）の上でも文字が読めるよう、暗さは 6〜8 割にする。
+  // 以前は 3〜4 割しかなく、動画が表示されると白と金色の文字がほとんど読めなかった。
+  const overlayOpacity = useTransform(scrollYProgress, [0, 0.3], [0.9, 1]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -26,26 +27,36 @@ export function HeroVideo() {
   }, []);
 
   return (
-    <div ref={ref} className="relative h-screen w-full overflow-hidden">
+    <div
+      ref={ref}
+      className="relative h-screen w-full overflow-hidden bg-stone-950 supports-[height:100svh]:h-svh"
+    >
       {/* Video Background */}
       <motion.div style={{ scale }} className="absolute inset-0">
+        {/*
+          読み込み中は poster（動画の最初のコマ）を表示する。
+          以前は「読み込み完了の通知を受けたら表示する」作りだったが、再訪問時など
+          動画が先に読み込まれると通知を受け取れず、動画が表示されないままになっていた。
+        */}
         <video
           ref={videoRef}
-          className={`h-full w-full object-cover transition-opacity duration-1000 ${isLoaded ? "opacity-100" : "opacity-0"}`}
+          className="h-full w-full object-cover"
           src="/hero-video.mp4"
+          poster="/hero-poster.jpg"
           autoPlay
           muted
           loop
           playsInline
           preload="auto"
-          onLoadedData={() => setIsLoaded(true)}
+          aria-hidden="true"
+          tabIndex={-1}
         />
       </motion.div>
 
       {/* Gradient Overlay */}
       <motion.div
         style={{ opacity: overlayOpacity }}
-        className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80"
+        className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/70 to-black/90"
       />
 
       {/* Subtle grain texture */}
@@ -70,34 +81,36 @@ export function HeroVideo() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
-          className="mb-4 text-[11px] font-light tracking-[0.5em] text-white/70 uppercase sm:text-xs"
+          className="mb-4 text-[11px] font-light tracking-[0.5em] text-white/80 uppercase sm:text-xs"
         >
           LPGA Member &middot; TPI Certified
         </motion.p>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.6 }}
-          className="mb-2 text-4xl font-extralight leading-tight tracking-wider text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] sm:text-6xl lg:text-7xl"
-        >
-          美しいスイングで、
-        </motion.h1>
-
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.8 }}
-          className="mb-8 text-4xl font-extralight leading-tight tracking-wider drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] sm:text-6xl lg:text-7xl"
-        >
-          <span className="text-[#b8945f]">ゴルフをもっと楽しく。</span>
-        </motion.h1>
+        {/* 見出しは 1 つの h1 にまとめる。文字サイズは画面幅に合わせ、各行が 1 行に収まるようにする */}
+        <h1 className="mb-8 text-[clamp(1.5rem,7.4vw,4.5rem)] font-extralight leading-tight tracking-wider drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
+          <motion.span
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.6 }}
+            className="mb-2 block whitespace-nowrap text-white"
+          >
+            美しいスイングで、
+          </motion.span>
+          <motion.span
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.8 }}
+            className="block whitespace-nowrap text-[#d9bb85]"
+          >
+            ゴルフをもっと楽しく。
+          </motion.span>
+        </h1>
 
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 1.2 }}
-          className="mb-12 max-w-lg text-sm font-light leading-relaxed text-white/60 sm:text-base"
+          className="mb-12 max-w-lg text-sm font-light leading-relaxed text-white/80 sm:text-base"
         >
           あなたの身体と骨格に合った、
           <br className="hidden sm:block" />
@@ -118,7 +131,7 @@ export function HeroVideo() {
           </Link>
           <Link
             href="/lessons"
-            className="rounded-full border border-white/10 px-10 py-3.5 text-sm font-light tracking-wider text-white/60 transition-all duration-500 hover:border-white/30 hover:text-white"
+            className="rounded-full border border-white/25 px-10 py-3.5 text-sm font-light tracking-wider text-white/80 transition-all duration-500 hover:border-white/40 hover:text-white"
           >
             レッスンプランを見る
           </Link>

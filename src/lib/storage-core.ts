@@ -204,6 +204,19 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * フレームワークが制御のために投げる例外か（Next.js は digest を付ける）。
+ * 例: ビルド時の仮描画でキャッシュ不可の通信を行うと「このページは動的」と知らせる例外が飛ぶ。
+ * これを読み込み失敗として再試行・包み直しすると、フレームワークが正しく処理できなくなる。
+ */
+function isControlFlowError(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    typeof (e as { digest?: unknown }).digest === "string"
+  );
+}
+
 function describe(e: unknown): string {
   if (e instanceof Error) return `${e.name}: ${e.message}`;
   try {
@@ -248,6 +261,7 @@ export function createJsonStore(
       try {
         return await driver.download(path);
       } catch (e) {
+        if (isControlFlowError(e)) throw e;
         lastError = e;
       }
     }

@@ -9,7 +9,7 @@ export default function TermsPage() {
   return (
     <>
       <h1>利用規約</h1>
-      <p className="text-stone-500 text-sm">最終更新日: 2026年4月20日</p>
+      <p className="text-stone-500 text-sm">最終更新日: 2026年11月24日</p>
 
       <p>
         本利用規約（以下「本規約」）は、奥村真由美（以下「当方」）が提供する
@@ -54,9 +54,10 @@ export default function TermsPage() {
       <ol>
         <li>
           レッスン料金は、当方指定の金額をレッスン当日に会場にてお支払いいただきます。
+          銀行振込の場合は、レッスン前までにお振込みください。
         </li>
         <li>
-          支払方法は、カード決済（Square）・現金・PayPayのいずれかです。
+          支払方法は、カード決済（Square）・現金・PayPay・銀行振込のいずれかです。
         </li>
       </ol>
 

@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import type { Schedule } from "@/types";
-import { isSameDay } from "date-fns";
 import { ja } from "date-fns/locale";
+import { calendarDateKey, jstCalendarDate, jstDateKey } from "@/lib/datetime";
 
 type Props = {
   schedules: Schedule[];
@@ -13,15 +13,20 @@ type Props = {
 };
 
 export function ScheduleCalendar({ schedules, selectedDate, onSelectDate }: Props) {
-  const [month, setMonth] = useState<Date>(new Date());
+  // 「今日」と表示する月は日本時間で決める（サーバーは世界標準時で動くため）
+  const [today] = useState(() => jstCalendarDate());
+  const [month, setMonth] = useState<Date>(today);
 
-  // 日付ごとの枠数を集計
-  const scheduledDates = schedules.map((s) => s.startAt);
-  const bookedDates = schedules.filter((s) => !s.isAvailable).map((s) => s.startAt);
+  // 枠のある日（日本時間の日付）を集計
+  const scheduledDays = new Set(schedules.map((s) => jstDateKey(s.startAt)));
+  const bookedDays = new Set(
+    schedules.filter((s) => !s.isAvailable).map((s) => jstDateKey(s.startAt))
+  );
 
   function getDayStatus(date: Date): "booked" | "available" | "none" {
-    const hasBooked = bookedDates.some((d) => isSameDay(d, date));
-    const hasAvailable = scheduledDates.some((d) => isSameDay(d, date));
+    const key = calendarDateKey(date);
+    const hasBooked = bookedDays.has(key);
+    const hasAvailable = scheduledDays.has(key);
     if (hasBooked && !hasAvailable) return "booked";
     if (hasAvailable) return "available";
     return "none";
@@ -47,6 +52,7 @@ export function ScheduleCalendar({ schedules, selectedDate, onSelectDate }: Prop
         onSelect={onSelectDate}
         month={month}
         onMonthChange={setMonth}
+        today={today}
         locale={ja}
         className="w-full"
         classNames={{

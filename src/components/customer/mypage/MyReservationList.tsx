@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { format, differenceInCalendarDays } from "date-fns";
-import { ja } from "date-fns/locale";
 import { CalendarDays, MapPin, Clock, Loader2, MessageCircle, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +16,7 @@ import {
 import type { Reservation } from "@/types";
 import { cancelReservationByCustomer } from "@/app/actions/reservations";
 import { callAction } from "@/lib/client/call-action";
+import { formatJst, jstCalendarDaysBetween } from "@/lib/datetime";
 
 const STATUS_MAP: Record<
   Reservation["status"],
@@ -63,7 +62,8 @@ function getCancelPolicy(rsv: Reservation): {
   if (rsv.scheduleDataLost) {
     return { type: "free", daysUntil: Infinity };
   }
-  const daysUntil = differenceInCalendarDays(rsv.schedule.startAt, new Date());
+  // サーバー側の判定（cancelReservationByCustomer）と同じく、日本時間の暦日で数える
+  const daysUntil = jstCalendarDaysBetween(new Date(), rsv.schedule.startAt);
   return {
     type: daysUntil >= 7 ? "free" : "line",
     daysUntil,
@@ -203,16 +203,13 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
                           <>
                             <span className="flex items-center gap-1.5">
                               <CalendarDays className="size-3 shrink-0" />
-                              {format(rsv.schedule.startAt, "yyyy年M月d日（E）", { locale: ja })}
+                              {formatJst(rsv.schedule.startAt, "yyyy年M月d日（E）")}
                             </span>
                             <span className="flex items-center gap-1.5">
                               <Clock className="size-3 shrink-0" />
-                              {format(rsv.schedule.startAt, "HH:mm")} – {format(
-                                rsv.requestedDuration
+                              {formatJst(rsv.schedule.startAt, "HH:mm")} – {formatJst(rsv.requestedDuration
                                   ? new Date(new Date(rsv.schedule.startAt).getTime() + rsv.requestedDuration * 60 * 1000)
-                                  : rsv.schedule.endAt,
-                                "HH:mm"
-                              )}
+                                  : rsv.schedule.endAt, "HH:mm")}
                               {rsv.requestedDuration && (
                                 <span className="ml-1 text-violet-600">
                                   （{rsv.requestedDuration}分リクエスト）
@@ -354,11 +351,7 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
                     <p>
                       {cancelTarget.scheduleDataLost
                         ? "日時情報なし（レッスン枠は削除済み）"
-                        : format(
-                            cancelTarget.schedule.startAt,
-                            "yyyy年M月d日（E） HH:mm",
-                            { locale: ja }
-                          )}
+                        : formatJst(cancelTarget.schedule.startAt, "yyyy年M月d日（E） HH:mm")}
                     </p>
                   </div>
 

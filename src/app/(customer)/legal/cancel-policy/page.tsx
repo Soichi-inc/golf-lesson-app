@@ -42,8 +42,12 @@ export default function CancelPolicyPage() {
 
       <h2>キャンセルの方法</h2>
       <p>
-        マイページの「予約履歴」からキャンセル操作を行ってください。
-        やむを得ない事情の場合はメールにてご相談ください。
+        レッスンの7日前までは、マイページの「予約履歴」からキャンセルできます。
+        それ以降のキャンセルは、
+        <a href="https://lin.ee/UP2gfpv" target="_blank" rel="noopener noreferrer">
+          LINE公式アカウント
+        </a>
+        よりご連絡ください。やむを得ない事情の場合もご相談ください。
       </p>
 
       <h2>ラウンドレッスンについて</h2>
@@ -61,6 +65,11 @@ export default function CancelPolicyPage() {
       <h2>お問い合わせ</h2>
       <p>
         キャンセルに関するお問い合わせは、下記までお願いいたします。
+        <br />
+        LINE公式アカウント:{" "}
+        <a href="https://lin.ee/UP2gfpv" target="_blank" rel="noopener noreferrer">
+          https://lin.ee/UP2gfpv
+        </a>
         <br />
         メールアドレス: mayumi_okumura@outlook.com
       </p>

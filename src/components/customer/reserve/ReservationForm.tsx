@@ -4,8 +4,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import { CalendarDays, MapPin, Clock, ChevronLeft, ChevronRight, AlertCircle, Loader2, Video, CreditCard, Users, User as UserIcon, Store, Sparkles, Phone, Flag } from "lucide-react";
 import { submitReservation } from "@/app/actions/reserve";
 import {
@@ -31,6 +29,7 @@ import {
   INDOOR_FLEX_PRICES,
   calcIndoorFlexPrice,
 } from "@/lib/indoor-flex-pricing";
+import { formatJst } from "@/lib/datetime";
 
 const OPTION_SWING_VIDEO_PRICE = 3000;
 
@@ -266,7 +265,7 @@ export function ReservationForm({ schedule: rawSchedule, existingPlans = [] }: P
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <Badge className="bg-white/20 text-white border-0 text-[10px]">
-                {schedule.lessonPlan.category === "REGULAR" ? "通常レッスン" : "ラウンドレッスン"}
+                {schedule.lessonPlan.category === "REGULAR" ? "インドアレッスン" : "ラウンドレッスン"}
               </Badge>
               {isIndoorFlex && (
                 <Badge className="bg-violet-500/30 text-violet-100 border-0 text-[10px]">
@@ -278,11 +277,11 @@ export function ReservationForm({ schedule: rawSchedule, existingPlans = [] }: P
             <div className="flex flex-col gap-1.5 text-xs text-stone-300">
               <span className="flex items-center gap-1.5">
                 <CalendarDays className="size-3.5 shrink-0" />
-                {format(schedule.startAt, "yyyy年M月d日（E）", { locale: ja })}
+                {formatJst(schedule.startAt, "yyyy年M月d日（E）")}
               </span>
               <span className="flex items-center gap-1.5">
                 <Clock className="size-3.5 shrink-0" />
-                {format(schedule.startAt, "HH:mm")} – {format(displayEndAt, "HH:mm")}
+                {formatJst(schedule.startAt, "HH:mm")} – {formatJst(displayEndAt, "HH:mm")}
                 （{displayDuration}分）
               </span>
               {schedule.teeOffTime && (
@@ -806,7 +805,7 @@ export function ReservationForm({ schedule: rawSchedule, existingPlans = [] }: P
                 <p className="text-sm font-medium text-stone-700">お支払い方法</p>
               </div>
               <p className="text-xs text-stone-500 leading-relaxed">
-                当日会場にてお支払いいただきます。カード決済（Square）・現金・PayPayに対応しております。
+                当日会場にてお支払いいただきます。カード決済（Square）・現金・PayPayに対応しております。銀行振込をご希望の場合は、事前にお振込みください。
               </p>
             </div>
 

@@ -71,6 +71,19 @@ export function isAlreadyExists(error: unknown): boolean {
   );
 }
 
+/**
+ * Next.js が制御のために投げた例外（digest 付き）が通信ライブラリに包まれていたら、元の例外を返す。
+ * そのまま投げ直すことで、フレームワーク側が本来の処理（ページを動的として扱う等）を行える。
+ */
+function unwrapControlFlowError(error: unknown): unknown | null {
+  const original = (error as ErrorLike | null)?.originalError;
+  return typeof original === "object" &&
+    original !== null &&
+    typeof (original as { digest?: unknown }).digest === "string"
+    ? original
+    : null;
+}
+
 async function toError(operation: string, error: unknown): Promise<Error> {
   const e = (typeof error === "object" && error !== null ? error : {}) as ErrorLike;
   const res = asResponse(e.originalError);
@@ -103,6 +116,8 @@ export function createSupabaseDriver(
     async download(path) {
       const { data, error } = await bucket().download(path);
       if (error) {
+        const controlFlow = unwrapControlFlowError(error);
+        if (controlFlow) throw controlFlow;
         if (await isObjectNotFound(error)) return null;
         throw await toError(`download ${path}`, error);
       }

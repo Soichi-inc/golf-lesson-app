@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import {
   Dumbbell,
   CalendarDays,
@@ -31,6 +29,7 @@ import {
 import { addDrill, deleteDrill } from "@/app/actions/drills";
 import { callAction } from "@/lib/client/call-action";
 import type { Drill } from "@/types";
+import { formatJst } from "@/lib/datetime";
 
 const STATUS_MAP: Record<
   Drill["status"],
@@ -302,17 +301,13 @@ export function DrillList({ drills: rawDrills, userId }: Props) {
                       <div className="flex flex-wrap items-center gap-3 text-[11px] text-stone-400">
                         <span>
                           割り当て:{" "}
-                          {format(drill.createdAt, "yyyy/MM/dd", {
-                            locale: ja,
-                          })}
+                          {formatJst(drill.createdAt, "yyyy/MM/dd")}
                         </span>
                         {drill.dueDate && (
                           <span className="flex items-center gap-1">
                             <CalendarDays className="size-3" />
                             目標:{" "}
-                            {format(drill.dueDate, "yyyy/MM/dd", {
-                              locale: ja,
-                            })}
+                            {formatJst(drill.dueDate, "yyyy/MM/dd")}
                           </span>
                         )}
                       </div>

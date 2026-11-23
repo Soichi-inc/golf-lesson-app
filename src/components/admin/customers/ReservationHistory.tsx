@@ -1,5 +1,3 @@
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import {
   CalendarDays,
   MapPin,
@@ -14,13 +12,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Reservation } from "@/types";
+import { formatJst } from "@/lib/datetime";
 
 const STATUS_MAP: Record<
   Reservation["status"],
   { label: string; className: string }
 > = {
   PENDING: {
-    label: "仮受付",
+    label: "リクエスト中",
     className: "bg-yellow-50 text-yellow-700 border-yellow-200",
   },
   CONFIRMED: {
@@ -81,16 +80,11 @@ export function ReservationHistory({ reservations }: Props) {
                   <div className="flex flex-col gap-1 text-xs text-stone-500">
                     <span className="flex items-center gap-1.5">
                       <CalendarDays className="size-3" />
-                      {format(new Date(rsv.schedule.startAt), "yyyy年M月d日（E） HH:mm", {
-                        locale: ja,
-                      })}
+                      {formatJst(new Date(rsv.schedule.startAt), "yyyy年M月d日（E） HH:mm")}
                       &nbsp;–&nbsp;
-                      {format(
-                        rsv.requestedDuration
+                      {formatJst(rsv.requestedDuration
                           ? new Date(new Date(rsv.schedule.startAt).getTime() + rsv.requestedDuration * 60 * 1000)
-                          : new Date(rsv.schedule.endAt),
-                        "HH:mm"
-                      )}
+                          : new Date(rsv.schedule.endAt), "HH:mm")}
                       {rsv.requestedDuration && (
                         <span className="ml-1 text-violet-600">（{rsv.requestedDuration}分）</span>
                       )}

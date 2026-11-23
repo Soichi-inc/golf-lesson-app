@@ -1,8 +1,7 @@
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import { Flag, MapPin, MessageCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { RoundScore } from "@/types";
+import { formatJst } from "@/lib/datetime";
 
 type Props = {
   scores: RoundScore[];
@@ -40,9 +39,7 @@ export function RoundScoreHistory({ scores }: Props) {
                 <div className="flex flex-col gap-1 text-xs text-stone-500">
                   <span className="flex items-center gap-1.5">
                     <MapPin className="size-3" />
-                    {format(new Date(score.playedAt), "yyyy年M月d日（E）", {
-                      locale: ja,
-                    })}
+                    {formatJst(new Date(score.playedAt), "yyyy年M月d日（E）")}
                   </span>
                 </div>
 

@@ -6,9 +6,8 @@ import { Search, ChevronRight, UserCircle2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import type { User } from "@/types";
+import { formatJst } from "@/lib/datetime";
 
 type Props = {
   users: User[];
@@ -121,7 +120,7 @@ function CustomerRow({
         <div className="hidden sm:block text-right shrink-0">
           <p className="text-[11px] text-stone-400">登録日</p>
           <p className="text-xs text-stone-600">
-            {format(new Date(user.createdAt), "yyyy/MM/dd", { locale: ja })}
+            {formatJst(new Date(user.createdAt), "yyyy/MM/dd")}
           </p>
         </div>
 

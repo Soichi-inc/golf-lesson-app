@@ -185,4 +185,22 @@
   .legal-content th {
     @apply bg-stone-50 font-medium text-stone-700 w-48;
   }
+  /* 「項目名: 内容」の表は、スマホでは縦に並べる（項目名の列が狭く、1〜2 文字ずつ折り返すため） */
+  @media (max-width: 639px) {
+    .legal-content table.legal-definition tr,
+    .legal-content table.legal-definition th,
+    .legal-content table.legal-definition td {
+      display: block;
+      width: 100%;
+    }
+    .legal-content table.legal-definition th {
+      border-bottom-width: 0;
+    }
+    .legal-content table.legal-definition td {
+      border-top-width: 0;
+    }
+    .legal-content table.legal-definition tr + tr th {
+      border-top-width: 0;
+    }
+  }
 }

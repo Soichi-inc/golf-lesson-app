@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import {
   ChevronLeft,
   CalendarDays,
@@ -22,6 +20,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getReservations } from "@/app/actions/reservations";
+import { formatJst } from "@/lib/datetime";
 
 export const metadata: Metadata = { title: "予約詳細" };
 
@@ -140,11 +139,11 @@ export default async function AdminReservationDetailPage({ params }: Props) {
             <div className="space-y-2">
               <p className="flex items-center gap-2 text-sm text-stone-600">
                 <CalendarDays className="size-4 text-stone-400 shrink-0" />
-                {format(startAt, "yyyy年M月d日（E）", { locale: ja })}
+                {formatJst(startAt, "yyyy年M月d日（E）")}
               </p>
               <p className="flex items-center gap-2 text-sm text-stone-600">
                 <Clock className="size-4 text-stone-400 shrink-0" />
-                {format(startAt, "HH:mm")} – {format(endAt, "HH:mm")}（{displayDuration}分
+                {formatJst(startAt, "HH:mm")} – {formatJst(endAt, "HH:mm")}（{displayDuration}分
                 {rsv.requestedDuration && (
                   <span className="text-violet-600 ml-1">リクエスト</span>
                 )}
@@ -246,7 +245,7 @@ export default async function AdminReservationDetailPage({ params }: Props) {
                 <p className="text-sm text-red-700">{rsv.cancelReason}</p>
                 {rsv.cancelledAt && (
                   <p className="text-[11px] text-red-400 mt-1">
-                    キャンセル日時：{format(new Date(rsv.cancelledAt), "yyyy年M月d日 HH:mm", { locale: ja })}
+                    キャンセル日時：{formatJst(new Date(rsv.cancelledAt), "yyyy年M月d日 HH:mm")}
                   </p>
                 )}
               </div>
@@ -258,8 +257,8 @@ export default async function AdminReservationDetailPage({ params }: Props) {
       {/* メタ情報 */}
       <div className="mt-6 text-[11px] text-stone-400 space-y-1">
         <p>予約ID: {rsv.id}</p>
-        <p>予約日時: {format(new Date(rsv.createdAt), "yyyy年M月d日 HH:mm:ss", { locale: ja })}</p>
-        <p>最終更新: {format(new Date(rsv.updatedAt), "yyyy年M月d日 HH:mm:ss", { locale: ja })}</p>
+        <p>予約日時: {formatJst(new Date(rsv.createdAt), "yyyy年M月d日 HH:mm:ss")}</p>
+        <p>最終更新: {formatJst(new Date(rsv.updatedAt), "yyyy年M月d日 HH:mm:ss")}</p>
       </div>
     </div>
   );

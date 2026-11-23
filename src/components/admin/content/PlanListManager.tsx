@@ -226,7 +226,7 @@ export function PlanListManager({ initialPlans }: Props) {
                   </span>
                   <span className="flex items-center gap-1.5">
                     <DollarSign className="size-3.5" />
-                    現金・振込・PayPay
+                    カード・現金・PayPay・振込
                   </span>
                 </div>
 

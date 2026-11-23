@@ -1,23 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import { CalendarDays, MapPin, Clock, CheckCircle2, Hourglass, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { getReservationsByUserId } from "@/app/actions/reservations";
+import { formatJst } from "@/lib/datetime";
 
 export const metadata: Metadata = { title: "予約状況確認" };
 
 export const dynamic = "force-dynamic";
 
 const STATUS_MAP = {
-  PENDING:   { label: "承認待ち",   icon: Hourglass,    className: "bg-yellow-50 text-yellow-700 border-yellow-200", desc: "講師が予約を確認中です。確定までしばらくお待ちください。" },
+  PENDING:   { label: "リクエスト中",   icon: Hourglass,    className: "bg-yellow-50 text-yellow-700 border-yellow-200", desc: "講師が予約を確認中です。確定までしばらくお待ちください。" },
   CONFIRMED: { label: "予約確定",   icon: CheckCircle2, className: "bg-emerald-50 text-emerald-700 border-emerald-200", desc: "予約が確定しました。当日お会いできるのを楽しみにしています！" },
   COMPLETED: { label: "レッスン実施済", icon: CheckCircle2, className: "bg-blue-50 text-blue-700 border-blue-200", desc: "レッスンが実施済みです。ありがとうございました。" },
-  CANCELLED: { label: "キャンセル済", icon: XCircle,      className: "bg-stone-100 text-stone-500 border-stone-200", desc: "この予約はキャンセルされました。" },
+  CANCELLED: { label: "キャンセル", icon: XCircle,      className: "bg-stone-100 text-stone-500 border-stone-200", desc: "この予約はキャンセルされました。" },
 } as const;
 
 export default async function ReserveConfirmPage() {
@@ -93,11 +92,11 @@ export default async function ReserveConfirmPage() {
             <div className="space-y-2">
               <p className="flex items-center gap-2 text-sm text-stone-600">
                 <CalendarDays className="size-4 text-stone-400 shrink-0" />
-                {format(startAt, "yyyy年M月d日（E）", { locale: ja })}
+                {formatJst(startAt, "yyyy年M月d日（E）")}
               </p>
               <p className="flex items-center gap-2 text-sm text-stone-600">
                 <Clock className="size-4 text-stone-400 shrink-0" />
-                {format(startAt, "HH:mm")} – {format(endAt, "HH:mm")}（{displayDuration}分
+                {formatJst(startAt, "HH:mm")} – {formatJst(endAt, "HH:mm")}（{displayDuration}分
                 {latest.requestedDuration && (
                   <span className="text-violet-600 ml-1">リクエスト</span>
                 )}
@@ -133,7 +132,7 @@ export default async function ReserveConfirmPage() {
             )}
 
             <p className="text-[11px] text-stone-400">
-              予約日時：{format(new Date(latest.createdAt), "yyyy年M月d日 HH:mm", { locale: ja })}
+              予約日時：{formatJst(new Date(latest.createdAt), "yyyy年M月d日 HH:mm")}
             </p>
           </div>
         </div>

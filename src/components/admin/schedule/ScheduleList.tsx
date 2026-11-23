@@ -1,7 +1,11 @@
 "use client";
 
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
+import {
+  calendarDateKey,
+  formatCalendarDate,
+  formatJst,
+  jstDateKey,
+} from "@/lib/datetime";
 import { Clock, MapPin, Pencil, Trash2, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,10 +61,7 @@ type Props = {
 export function ScheduleList({ schedules, selectedDate, onDelete, onEdit, bookedCounts }: Props) {
   const filtered = selectedDate
     ? schedules.filter(
-        (s) =>
-          s.startAt.getFullYear() === selectedDate.getFullYear() &&
-          s.startAt.getMonth() === selectedDate.getMonth() &&
-          s.startAt.getDate() === selectedDate.getDate()
+        (s) => jstDateKey(s.startAt) === calendarDateKey(selectedDate)
       )
     : schedules;
 
@@ -73,7 +74,7 @@ export function ScheduleList({ schedules, selectedDate, onDelete, onEdit, booked
       <div className="flex flex-col items-center justify-center py-12 text-stone-400 border-2 border-dashed rounded-xl">
         <p className="text-sm">
           {selectedDate
-            ? `${format(selectedDate, "M月d日", { locale: ja })} の空き枠はありません`
+            ? `${formatCalendarDate(selectedDate, "M月d日")} の空き枠はありません`
             : "空き枠がありません"}
         </p>
       </div>
@@ -160,8 +161,8 @@ function ScheduleCard({
             <div className="flex flex-col gap-1 text-xs text-stone-500">
               <span className="flex items-center gap-1.5">
                 <Clock className="size-3" />
-                {format(schedule.startAt, "HH:mm")} –{" "}
-                {format(schedule.endAt, "HH:mm")}
+                {formatJst(schedule.startAt, "HH:mm")} –{" "}
+                {formatJst(schedule.endAt, "HH:mm")}
               </span>
               {schedule.teeOffTime && (
                 <span className="flex items-center gap-1.5 text-amber-600">

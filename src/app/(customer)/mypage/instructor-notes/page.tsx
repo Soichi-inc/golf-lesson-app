@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import { ChevronLeft, MessageSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicInstructorNotesByUserId } from "@/app/actions/instructorNotes";
+import { formatJst } from "@/lib/datetime";
 
 export const metadata: Metadata = { title: "講師からのメモ" };
 
@@ -55,9 +54,7 @@ export default async function InstructorNotesPage() {
                 className="rounded-2xl bg-white ring-1 ring-stone-100 shadow-sm p-4 sm:p-5"
               >
                 <p className="text-[11px] text-stone-400 mb-2">
-                  {format(note.createdAt, "yyyy年M月d日（E） HH:mm", {
-                    locale: ja,
-                  })}
+                  {formatJst(note.createdAt, "yyyy年M月d日（E） HH:mm")}
                 </p>
                 <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">
                   {note.content}

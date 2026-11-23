@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import { Flag, Plus, ChevronDown, ChevronUp, Trash2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { RoundScore } from "@/types";
 import { addScore as addScoreAction, deleteScore as deleteScoreAction } from "@/app/actions/scores";
 import { callAction } from "@/lib/client/call-action";
+import { formatJst } from "@/lib/datetime";
 
 type ScoreFormRaw = {
   playedAt: string;
@@ -217,7 +216,7 @@ export function MyScoreSection({ scores: initialScores, userId }: Props) {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-stone-800 text-sm truncate">{s.courseName}</p>
-                      <p className="text-xs text-stone-400 mt-0.5">{format(s.playedAt, "yyyy年M月d日（E）", { locale: ja })}</p>
+                      <p className="text-xs text-stone-400 mt-0.5">{formatJst(s.playedAt, "yyyy年M月d日（E）")}</p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right">

@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { format, isBefore, startOfDay, isSameMonth, isSameDay } from "date-fns";
-import { ja } from "date-fns/locale";
+import {
+  formatJst,
+  isBeforeJstDay,
+  isSameJstDay,
+  isSameJstMonth,
+} from "@/lib/datetime";
 import {
   CalendarDays,
   ClipboardList,
@@ -25,8 +29,8 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const today = startOfDay(new Date());
-  const thisMonth = new Date();
+  // 「今日」「今月」は日本時間で判定する（サーバーは世界標準時で動いている）
+  const now = new Date();
 
   // 実データを取得
   const [allReservations, customers, allSchedules] = await Promise.all([
@@ -46,14 +50,14 @@ export default async function AdminDashboardPage() {
 
   // 今月のスケジュール
   const monthSchedules = allSchedules.filter((s) =>
-    isSameMonth(s.startAt, thisMonth)
+    isSameJstMonth(s.startAt, now)
   );
   const availableSlots = monthSchedules.filter((s) => s.isAvailable).length;
   const totalSlots = monthSchedules.length;
 
   // 直近の予定（今日以降、最大5件）
   const upcomingSchedules = allSchedules
-    .filter((s) => !isBefore(startOfDay(s.startAt), today))
+    .filter((s) => !isBeforeJstDay(s.startAt, now))
     .sort((a, b) => a.startAt.getTime() - b.startAt.getTime())
     .slice(0, 5);
 
@@ -62,7 +66,7 @@ export default async function AdminDashboardPage() {
       <div>
         <h1 className="text-2xl font-light tracking-wide mb-1">ダッシュボード</h1>
         <p className="text-sm text-stone-500">
-          {format(today, "yyyy年M月d日（E）", { locale: ja })}
+          {formatJst(now, "yyyy年M月d日（E）")}
         </p>
       </div>
 
@@ -138,7 +142,7 @@ export default async function AdminDashboardPage() {
           <div className="space-y-2">
             {upcomingSchedules.map((schedule) => {
               const isRound = schedule.lessonPlan.category === "ROUND";
-              const isToday = isSameDay(schedule.startAt, today);
+              const isToday = isSameJstDay(schedule.startAt, now);
 
               return (
                 <div
@@ -148,13 +152,13 @@ export default async function AdminDashboardPage() {
                   {/* 日付 */}
                   <div className="text-center shrink-0 w-14">
                     <p className="text-[10px] text-stone-400 uppercase">
-                      {format(schedule.startAt, "E", { locale: ja })}
+                      {formatJst(schedule.startAt, "E")}
                     </p>
                     <p className={`text-lg font-semibold ${isToday ? "text-stone-800" : "text-stone-600"}`}>
-                      {format(schedule.startAt, "d")}
+                      {formatJst(schedule.startAt, "d")}
                     </p>
                     <p className="text-[10px] text-stone-400">
-                      {format(schedule.startAt, "M月")}
+                      {formatJst(schedule.startAt, "M月")}
                     </p>
                   </div>
 
@@ -191,7 +195,7 @@ export default async function AdminDashboardPage() {
                     <div className="flex items-center gap-3 mt-0.5 text-xs text-stone-400">
                       <span className="flex items-center gap-1">
                         <Clock className="size-3" />
-                        {format(schedule.startAt, "HH:mm")} – {format(schedule.endAt, "HH:mm")}
+                        {formatJst(schedule.startAt, "HH:mm")} – {formatJst(schedule.endAt, "HH:mm")}
                       </span>
                       {schedule.location && (
                         <span className="flex items-center gap-1 truncate">

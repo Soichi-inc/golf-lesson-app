@@ -9,7 +9,7 @@ export default function PrivacyPolicyPage() {
   return (
     <>
       <h1>プライバシーポリシー</h1>
-      <p className="text-stone-500 text-sm">最終更新日: 2026年4月20日</p>
+      <p className="text-stone-500 text-sm">最終更新日: 2026年11月24日</p>
 
       <p>
         奥村真由美（以下「当方」）は、当方が運営するゴルフレッスン予約サイト（以下「本サービス」）における、
@@ -21,7 +21,7 @@ export default function PrivacyPolicyPage() {
       <ul>
         <li>氏名</li>
         <li>メールアドレス</li>
-        <li>電話番号（任意）</li>
+        <li>電話番号（ご予約時にお伺いする当日の緊急連絡先）</li>
         <li>予約履歴、レッスン記録、スコア記録など本サービス利用により蓄積される情報</li>
         <li>ご相談・ご質問内容</li>
       </ul>

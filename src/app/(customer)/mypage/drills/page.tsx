@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import { ChevronLeft, Dumbbell, CheckCircle2, Clock, Circle, CalendarDays, Play, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
 import { getDrillsByUserId } from "@/app/actions/drills";
 import type { Drill } from "@/types";
+import { formatJst } from "@/lib/datetime";
 
 export const metadata: Metadata = { title: "練習ドリル" };
 
@@ -97,7 +96,7 @@ export default async function MyDrillsPage() {
                             {drill.dueDate && (
                               <p className="text-[11px] text-stone-400 mt-2 flex items-center gap-1">
                                 <CalendarDays className="size-3" />
-                                期限：{format(drill.dueDate, "yyyy年M月d日", { locale: ja })}
+                                期限：{formatJst(drill.dueDate, "yyyy年M月d日")}
                               </p>
                             )}
                             <DrillVideoLink videoUrl={drill.videoUrl} />

@@ -57,7 +57,7 @@ export async function GET(request: Request) {
             fontWeight: 500,
           }}
         >
-          Pro Golf Lesson
+          Mayumi Okumura Official HP
         </div>
 
         {/* Main Title */}

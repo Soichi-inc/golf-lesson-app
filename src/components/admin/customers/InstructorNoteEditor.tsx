@@ -10,8 +10,6 @@ import {
 import { callAction } from "@/lib/client/call-action";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import { Plus, Lock, Unlock, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +25,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import type { InstructorNote } from "@/types";
+import { formatJst } from "@/lib/datetime";
 
 const noteSchema = z.object({
   content: z.string().min(1, "内容を入力してください"),
@@ -255,7 +254,7 @@ function NoteCard({
       <Card className="border-stone-300 bg-stone-50">
         <CardContent className="p-4 space-y-3">
           <p className="text-[11px] text-stone-400">
-            {format(note.createdAt, "yyyy/MM/dd HH:mm", { locale: ja })} のメモを編集中
+            {formatJst(note.createdAt, "yyyy/MM/dd HH:mm")} のメモを編集中
           </p>
 
           <Textarea
@@ -330,7 +329,7 @@ function NoteCard({
             {/* メタ情報 */}
             <div className="flex items-center gap-2 mb-2">
               <span className="text-[11px] text-stone-400">
-                {format(note.createdAt, "yyyy/MM/dd HH:mm", { locale: ja })}
+                {formatJst(note.createdAt, "yyyy/MM/dd HH:mm")}
               </span>
               <Badge
                 variant="outline"
