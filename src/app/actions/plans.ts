@@ -1,6 +1,7 @@
 "use server";
 
-import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
+import { z } from "zod";
+import { readJsonFromStorage, updateJsonInStorage } from "@/lib/storage";
 import { requireAdmin, handleActionError } from "@/lib/auth/guard";
 
 // レッスンプランの型
@@ -97,33 +98,77 @@ const defaultPlans: PlanData[] = [
 
 const PLANS_PATH = "plans.json";
 
+/** 保存前の検証（編集ダイアログの入力ルールと同じ） */
+const planSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  category: z.enum(["REGULAR", "ROUND", "ONLINE"]),
+  tagLabel: z.string().min(1),
+  price: z.number().min(0),
+  priceFrom: z.boolean().optional(),
+  priceNote: z.string().optional(),
+  duration: z.number().min(1),
+  maxAttendees: z.number().min(1),
+  isPublished: z.boolean(),
+  description: z.string().optional(),
+  highlights: z.array(z.string()).optional(),
+  details: z.array(z.string()),
+});
+
+type PlanResult = { success: boolean; plans?: PlanData[]; error?: string };
+
 export async function getPlans(): Promise<PlanData[]> {
-  return readJsonFromStorage<PlanData[]>(PLANS_PATH, defaultPlans);
+  return readJsonFromStorage<PlanData[]>(PLANS_PATH, defaultPlans, { shape: "array" });
 }
 
-/** プラン保存（ADMIN専用） */
-export async function savePlans(
-  plans: PlanData[]
-): Promise<{ success: boolean; error?: string }> {
+/**
+ * プランを 1 件だけ追加または更新する（ADMIN専用）
+ *
+ * 画面が持っている一覧をまるごと送って保存する方式は取らない。
+ * スマホと PC など 2 つの画面で管理画面を開いていると、古い一覧で保存した側が
+ * もう一方の変更を消してしまうため。保存後の最新の一覧を返すので、
+ * 画面側はそれで表示を更新する。
+ */
+export async function upsertPlan(plan: PlanData): Promise<PlanResult> {
   try {
     await requireAdmin();
-    await writeJsonToStorage(PLANS_PATH, plans);
-    return { success: true };
+    const parsed = planSchema.safeParse(plan);
+    if (!parsed.success) {
+      return { success: false, error: "入力内容を確認してください" };
+    }
+    const next: PlanData = parsed.data;
+
+    const plans = await updateJsonInStorage<PlanData[], PlanData[]>(
+      PLANS_PATH,
+      defaultPlans,
+      (current) => {
+        const updated = current.some((p) => p.id === next.id)
+          ? current.map((p) => (p.id === next.id ? next : p))
+          : [...current, next];
+        return { data: updated, result: updated };
+      },
+      { shape: "array" }
+    );
+    return { success: true, plans };
   } catch (err) {
     return handleActionError(err, "レッスンプランの保存に失敗しました");
   }
 }
 
-/** プラン削除（ADMIN専用） */
-export async function deletePlan(
-  planId: string
-): Promise<{ success: boolean; error?: string }> {
+/** プラン削除（ADMIN専用）。削除後の最新の一覧を返す */
+export async function deletePlan(planId: string): Promise<PlanResult> {
   try {
     await requireAdmin();
-    const plans = await getPlans();
-    const filtered = plans.filter((p) => p.id !== planId);
-    await writeJsonToStorage(PLANS_PATH, filtered);
-    return { success: true };
+    const plans = await updateJsonInStorage<PlanData[], PlanData[]>(
+      PLANS_PATH,
+      defaultPlans,
+      (current) => {
+        const updated = current.filter((p) => p.id !== planId);
+        return { data: updated, result: updated };
+      },
+      { shape: "array" }
+    );
+    return { success: true, plans };
   } catch (err) {
     return handleActionError(err, "プランの削除に失敗しました");
   }

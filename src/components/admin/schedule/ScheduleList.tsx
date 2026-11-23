@@ -18,7 +18,13 @@ function DeleteConfirm({
 }) {
   if (disabled) {
     return (
-      <Button variant="ghost" size="icon" className="size-8 text-stone-300" disabled>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8 text-stone-300"
+        disabled
+        aria-label="予約が入っているため削除できません"
+      >
         <Trash2 className="size-3.5" />
       </Button>
     );
@@ -32,6 +38,7 @@ function DeleteConfirm({
       onClick={() => {
         if (confirm("この空き枠を削除しますか？")) onConfirm();
       }}
+      aria-label="この枠を削除"
     >
       <Trash2 className="size-3.5" />
     </Button>

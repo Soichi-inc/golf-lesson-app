@@ -4,10 +4,7 @@ import { sendMail, notifyAdmin } from "@/lib/email/send";
 import { reservationRequestEmail, adminNewReservationEmail } from "@/lib/email/templates";
 import { getScheduleById, getLessonPlans } from "@/app/actions/schedules";
 import { requireUser, handleActionError } from "@/lib/auth/guard";
-import {
-  insertReservationRecord,
-  getAllReservations,
-} from "@/lib/data/reservations";
+import { insertReservationRecord } from "@/lib/data/reservations";
 import type {
   IndoorFlexDuration,
   IndoorLocationType,
@@ -151,58 +148,11 @@ export async function submitReservation(input: ReserveInput) {
 
     const totalPrice = lessonPrice + (input.optionSwingVideo ? OPTION_SWING_VIDEO_PRICE : 0);
 
-    // 4. 排他制御：既存の有効予約をチェック
-    const allReservations = await getAllReservations();
-    const activeReservationsForSchedule = allReservations.filter(
-      (r) => r.scheduleId === input.scheduleId && r.status !== "CANCELLED"
-    );
-
-    // 重複予約チェック
-    const duplicate = activeReservationsForSchedule.find((r) => r.userId === user.id);
-    if (duplicate) {
-      return { success: false, error: "このスケジュールには既に予約済みです" };
-    }
-
-    // 既存予約の内訳を確認
-    const existingPrivate = activeReservationsForSchedule.find(
-      (r) => r.roundBookingType === "private"
-    );
-    const existingShared = activeReservationsForSchedule.filter(
-      (r) => r.roundBookingType === "shared"
-    );
-    const existingRegular = activeReservationsForSchedule.filter(
-      (r) => !r.roundBookingType
-    );
-
-    if (roundBookingType === "private") {
-      // 貸切予約は「枠全体を独占」するため、他の予約が1件でもあれば不可
-      if (activeReservationsForSchedule.length > 0) {
-        return {
-          success: false,
-          error:
-            "この枠には既に他のご予約が入っているため、貸切予約はできません。組み合わせ予約または別の日時をお選びください。",
-        };
-      }
-    } else if (roundBookingType === "shared") {
-      // 組み合わせ予約: 貸切との同居は不可
-      if (existingPrivate) {
-        return {
-          success: false,
-          error: "この枠は既に貸切予約が入っているため、予約できません。",
-        };
-      }
-      // 組み合わせ同士の定員チェック（1人1席）
-      if (existingShared.length + 1 > schedule.maxAttendees) {
-        return { success: false, error: "このスケジュールは満員です" };
-      }
-    } else {
-      // ラウンド以外（通常レッスン）: 既存が1件でもあれば満員
-      if (existingRegular.length + 1 > schedule.maxAttendees) {
-        return { success: false, error: "このスケジュールは満員です" };
-      }
-    }
-
-    // 5. 予約データを保存
+    // 4. 予約データを保存
+    // 重複予約・満員・貸切との同居の確認は、保存と同じ排他ロックの中で
+    // 最新の予約データに対して行う（insertReservationRecord 内）。
+    // 確認と保存の間に別の予約が割り込めないので、同時に申し込まれても
+    // 定員を超えたり、片方の予約が消えたりしない。
     const userName = user.fullName;
     const userEmail = user.email;
 
@@ -233,7 +183,7 @@ export async function submitReservation(input: ReserveInput) {
       return { success: false, error: saveResult.error };
     }
 
-    // 6. ユーザーにメール送信（非ブロッキング）
+    // 5. ユーザーにメール送信（送信失敗しても予約は成功扱い）
     const displayName = userName || userEmail || "お客様";
 
     const flexInfo = {
@@ -257,7 +207,7 @@ export async function submitReservation(input: ReserveInput) {
       });
     }
 
-    // 7. 管理者にメール通知（非ブロッキング）
+    // 6. 管理者にメール通知（送信失敗しても予約は成功扱い）
     const adminTemplate = adminNewReservationEmail(
       schedule,
       displayName,

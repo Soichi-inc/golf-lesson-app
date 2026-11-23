@@ -1,6 +1,10 @@
 import "server-only";
 import type { Drill, DrillStatus } from "@/types";
-import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
+import {
+  readJsonFromStorage,
+  updateJsonInStorage,
+  type UpdateOutcome,
+} from "@/lib/storage";
 
 const FILE_PATH = "drills.json";
 
@@ -18,11 +22,17 @@ export type DrillRecord = {
 };
 
 export async function readDrillRecords(): Promise<DrillRecord[]> {
-  return readJsonFromStorage<DrillRecord[]>(FILE_PATH, []);
+  return readJsonFromStorage<DrillRecord[]>(FILE_PATH, [], { shape: "array" });
 }
 
-export async function writeDrillRecords(records: DrillRecord[]): Promise<void> {
-  await writeJsonToStorage(FILE_PATH, records);
+/**
+ * ドリルデータを書き換える。
+ * 排他ロックの中で最新の内容を読み、mutate の結果を保存する（詳細は `@/lib/storage`）。
+ */
+export function updateDrillRecords<R>(
+  mutate: (records: DrillRecord[]) => UpdateOutcome<DrillRecord[], R>
+): Promise<R> {
+  return updateJsonInStorage<DrillRecord[], R>(FILE_PATH, [], mutate, { shape: "array" });
 }
 
 export function toDrill(r: DrillRecord): Drill {

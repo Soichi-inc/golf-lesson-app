@@ -1,6 +1,11 @@
 "use server";
 
-import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
+import {
+  readJsonFromStorage,
+  updateJsonInStorage,
+  type UpdateOutcome,
+} from "@/lib/storage";
+import { newRecordId } from "@/lib/data/ids";
 import type { LessonPlan, Schedule, LessonCategory } from "@/types";
 import { requireAdmin, handleActionError } from "@/lib/auth/guard";
 import { getPlans } from "@/app/actions/plans";
@@ -209,7 +214,9 @@ function toLessonPlanRecord(p: LessonPlan): LessonPlanRecord {
  */
 export async function getLessonPlans(): Promise<LessonPlan[]> {
   const [legacyRecords, planData] = await Promise.all([
-    readJsonFromStorage<LessonPlanRecord[]>(LESSON_PLANS_PATH, defaultLessonPlans),
+    readJsonFromStorage<LessonPlanRecord[]>(LESSON_PLANS_PATH, defaultLessonPlans, {
+      shape: "array",
+    }),
     getPlans(),
   ]);
 
@@ -250,12 +257,30 @@ export async function getLessonPlans(): Promise<LessonPlan[]> {
 // Public API — スケジュール
 // ---------------------------------------------------------------------------
 
+function readScheduleRecords(): Promise<ScheduleRecord[]> {
+  return readJsonFromStorage<ScheduleRecord[]>(SCHEDULES_PATH, defaultSchedules, {
+    shape: "array",
+  });
+}
+
+/**
+ * スケジュールデータを書き換える。
+ * 排他ロックの中で最新の内容を読み、mutate の結果を保存する（詳細は `@/lib/storage`）。
+ */
+function updateScheduleRecords<R>(
+  mutate: (records: ScheduleRecord[]) => UpdateOutcome<ScheduleRecord[], R>
+): Promise<R> {
+  return updateJsonInStorage<ScheduleRecord[], R>(
+    SCHEDULES_PATH,
+    defaultSchedules,
+    mutate,
+    { shape: "array" }
+  );
+}
+
 /** スケジュール一覧を取得 */
 export async function getSchedules(): Promise<Schedule[]> {
-  const records = await readJsonFromStorage<ScheduleRecord[]>(
-    SCHEDULES_PATH,
-    defaultSchedules
-  );
+  const records = await readScheduleRecords();
   return records.map(toSchedule);
 }
 
@@ -273,23 +298,19 @@ export async function addSchedule(
 ): Promise<{ success: boolean; schedule?: Schedule; error?: string }> {
   try {
     await requireAdmin();
-    const records = await readJsonFromStorage<ScheduleRecord[]>(
-      SCHEDULES_PATH,
-      defaultSchedules
-    );
 
-    const now = new Date();
-    const newSchedule: Schedule = {
-      ...input,
-      id: `sch-${Date.now()}`,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const schedule = await updateScheduleRecords((records) => {
+      const now = new Date();
+      const created: Schedule = {
+        ...input,
+        id: newRecordId("sch", records, now.getTime()),
+        createdAt: now,
+        updatedAt: now,
+      };
+      return { data: [...records, toScheduleRecord(created)], result: created };
+    });
 
-    records.push(toScheduleRecord(newSchedule));
-    await writeJsonToStorage(SCHEDULES_PATH, records);
-
-    return { success: true, schedule: newSchedule };
+    return { success: true, schedule };
   } catch (err) {
     return handleActionError(err, "スケジュールの保存に失敗しました");
   }
@@ -307,31 +328,33 @@ export async function updateSchedule(
 ): Promise<{ success: boolean; schedule?: Schedule; error?: string }> {
   try {
     await requireAdmin();
-    const records = await readJsonFromStorage<ScheduleRecord[]>(
-      SCHEDULES_PATH,
-      defaultSchedules
-    );
-    const idx = records.findIndex((r) => r.id === scheduleId);
-    if (idx === -1) return { success: false, error: "スケジュールが見つかりません" };
 
     // undefined のキーで既存値を上書きしないよう除外する
     const changes = Object.fromEntries(
       Object.entries(input).filter(([, v]) => v !== undefined)
     ) as Partial<Schedule>;
 
-    const current = toSchedule(records[idx]);
-    const updated: Schedule = {
-      ...current,
-      ...changes,
-      id: current.id,
-      createdAt: current.createdAt,
-      updatedAt: new Date(),
-    };
+    const schedule = await updateScheduleRecords<Schedule | null>((records) => {
+      const target = records.find((r) => r.id === scheduleId);
+      if (!target) return { result: null };
 
-    records[idx] = toScheduleRecord(updated);
-    await writeJsonToStorage(SCHEDULES_PATH, records);
+      const current = toSchedule(target);
+      const updated: Schedule = {
+        ...current,
+        ...changes,
+        id: current.id,
+        createdAt: current.createdAt,
+        updatedAt: new Date(),
+      };
+      const updatedRecord = toScheduleRecord(updated);
+      return {
+        data: records.map((r) => (r.id === scheduleId ? updatedRecord : r)),
+        result: updated,
+      };
+    });
+    if (!schedule) return { success: false, error: "スケジュールが見つかりません" };
 
-    return { success: true, schedule: updated };
+    return { success: true, schedule };
   } catch (err) {
     return handleActionError(err, "スケジュールの更新に失敗しました");
   }
@@ -352,10 +375,12 @@ export async function deleteSchedule(
     await requireAdmin();
 
     // NOTE: `@/lib/data/reservations` はこのファイルを import しているため、
-    // 循環参照を避けて reservations.json を直接読む（scheduleId と status のみ参照）
+    // 循環参照を避けて reservations.json を直接読む（scheduleId と status のみ参照）。
+    // 予約を読めなかった場合は例外になり、削除は行われない
+    // （読めないまま「予約なし」とみなして枠を消さないため）。
     const reservations = await readJsonFromStorage<
       { scheduleId: string; status: string }[]
-    >("reservations.json", []);
+    >("reservations.json", [], { shape: "array" });
     const activeCount = reservations.filter(
       (r) =>
         r.scheduleId === scheduleId &&
@@ -369,12 +394,10 @@ export async function deleteSchedule(
       };
     }
 
-    const records = await readJsonFromStorage<ScheduleRecord[]>(
-      SCHEDULES_PATH,
-      defaultSchedules
-    );
-    const filtered = records.filter((r) => r.id !== scheduleId);
-    await writeJsonToStorage(SCHEDULES_PATH, filtered);
+    await updateScheduleRecords((records) => ({
+      data: records.filter((r) => r.id !== scheduleId),
+      result: null,
+    }));
     return { success: true };
   } catch (err) {
     return handleActionError(err, "スケジュールの削除に失敗しました");
@@ -388,16 +411,21 @@ export async function updateScheduleAvailability(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await requireAdmin();
-    const records = await readJsonFromStorage<ScheduleRecord[]>(
-      SCHEDULES_PATH,
-      defaultSchedules
-    );
-    const idx = records.findIndex((r) => r.id === scheduleId);
-    if (idx === -1) return { success: false, error: "スケジュールが見つかりません" };
 
-    records[idx].isAvailable = isAvailable;
-    records[idx].updatedAt = new Date().toISOString();
-    await writeJsonToStorage(SCHEDULES_PATH, records);
+    const found = await updateScheduleRecords<boolean>((records) => {
+      const target = records.find((r) => r.id === scheduleId);
+      if (!target) return { result: false };
+      const updated: ScheduleRecord = {
+        ...target,
+        isAvailable,
+        updatedAt: new Date().toISOString(),
+      };
+      return {
+        data: records.map((r) => (r.id === scheduleId ? updated : r)),
+        result: true,
+      };
+    });
+    if (!found) return { success: false, error: "スケジュールが見つかりません" };
 
     return { success: true };
   } catch (err) {

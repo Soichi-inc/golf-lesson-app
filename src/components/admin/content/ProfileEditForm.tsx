@@ -30,6 +30,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { saveProfile, type ProfileData } from "@/app/actions/profile";
+import { callAction } from "@/lib/client/call-action";
 
 const locationSchema = z.object({
   name: z.string().min(1, "施設名を入力してください"),
@@ -89,7 +90,7 @@ export function ProfileEditForm({ initialData }: Props) {
       teachingPhilosophy: values.teachingPhilosophy.map((p) => p.value),
     };
 
-    const result = await saveProfile(profileData);
+    const result = await callAction(() => saveProfile(profileData));
     if (result.success) {
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 3000);

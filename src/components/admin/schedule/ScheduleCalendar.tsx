@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import type { Schedule } from "@/types";
-import { format, isSameDay } from "date-fns";
+import { isSameDay } from "date-fns";
 import { ja } from "date-fns/locale";
 
 type Props = {

@@ -1,6 +1,10 @@
 import "server-only";
 import type { InstructorNote } from "@/types";
-import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
+import {
+  readJsonFromStorage,
+  updateJsonInStorage,
+  type UpdateOutcome,
+} from "@/lib/storage";
 
 const FILE_PATH = "instructor-notes.json";
 
@@ -15,13 +19,17 @@ export type InstructorNoteRecord = {
 };
 
 export async function readInstructorNoteRecords(): Promise<InstructorNoteRecord[]> {
-  return readJsonFromStorage<InstructorNoteRecord[]>(FILE_PATH, []);
+  return readJsonFromStorage<InstructorNoteRecord[]>(FILE_PATH, [], { shape: "array" });
 }
 
-export async function writeInstructorNoteRecords(
-  records: InstructorNoteRecord[]
-): Promise<void> {
-  await writeJsonToStorage(FILE_PATH, records);
+/**
+ * 指導メモデータを書き換える。
+ * 排他ロックの中で最新の内容を読み、mutate の結果を保存する（詳細は `@/lib/storage`）。
+ */
+export function updateInstructorNoteRecords<R>(
+  mutate: (records: InstructorNoteRecord[]) => UpdateOutcome<InstructorNoteRecord[], R>
+): Promise<R> {
+  return updateJsonInStorage<InstructorNoteRecord[], R>(FILE_PATH, [], mutate, { shape: "array" });
 }
 
 export function toInstructorNote(r: InstructorNoteRecord): InstructorNote {

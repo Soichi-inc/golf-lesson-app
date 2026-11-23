@@ -11,6 +11,7 @@ import { ScheduleCreateDialog } from "./ScheduleCreateDialog";
 import { ScheduleEditDialog } from "./ScheduleEditDialog";
 import type { SchedulePayload } from "./ScheduleFormFields";
 import { addSchedule, deleteSchedule, updateSchedule } from "@/app/actions/schedules";
+import { callAction } from "@/lib/client/call-action";
 import type { LessonPlan, Schedule } from "@/types";
 
 type Props = {
@@ -89,18 +90,20 @@ export function ScheduleManager({ initialSchedules, lessonPlans, bookedCounts }:
     setSaving(true);
 
     // サーバーに永続化
-    const result = await addSchedule({
-      lessonPlanId: data.lessonPlanId,
-      lessonPlan: plan,
-      startAt: data.startAt,
-      endAt: data.endAt,
-      location: data.location,
-      maxAttendees: data.maxAttendees,
-      isAvailable: data.isAvailable,
-      note: data.note,
-      teeOffTime: data.teeOffTime,
-      allowAnyLocation: data.allowAnyLocation,
-    });
+    const result = await callAction(() =>
+      addSchedule({
+        lessonPlanId: data.lessonPlanId,
+        lessonPlan: plan,
+        startAt: data.startAt,
+        endAt: data.endAt,
+        location: data.location,
+        maxAttendees: data.maxAttendees,
+        isAvailable: data.isAvailable,
+        note: data.note,
+        teeOffTime: data.teeOffTime,
+        allowAnyLocation: data.allowAnyLocation,
+      })
+    );
 
     setSaving(false);
 
@@ -124,7 +127,7 @@ export function ScheduleManager({ initialSchedules, lessonPlans, bookedCounts }:
     const deleted = schedules.find((s) => s.id === id);
     setSchedules((prev) => prev.filter((s) => s.id !== id));
 
-    const result = await deleteSchedule(id);
+    const result = await callAction(() => deleteSchedule(id));
     if (!result.success) {
       // ロールバック
       if (deleted) {
@@ -149,7 +152,7 @@ export function ScheduleManager({ initialSchedules, lessonPlans, bookedCounts }:
     );
     setSaving(true);
 
-    const result = await updateSchedule(id, { ...data, lessonPlan: plan });
+    const result = await callAction(() => updateSchedule(id, { ...data, lessonPlan: plan }));
 
     setSaving(false);
 

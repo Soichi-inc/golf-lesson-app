@@ -19,6 +19,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { updateReservationStatus, approveReservation, rejectReservation, completeReservation } from "@/app/actions/reservations";
+import { callAction } from "@/lib/client/call-action";
 import type { Reservation } from "@/types";
 
 const STATUS_MAP: Record<
@@ -33,16 +34,197 @@ const STATUS_MAP: Record<
 
 type ActionType = "approve" | "cancel" | "reject" | "complete" | "revert_to_confirmed";
 
+function ReservationCard({
+  rsv,
+  actions,
+  now,
+  onAction,
+}: {
+  rsv: Reservation;
+  actions: ActionType[];
+  /** 現在時刻（ミリ秒）。親が 1 分ごとに更新する */
+  now: number;
+  onAction: (rsv: Reservation, type: ActionType) => void;
+}) {
+  const s = STATUS_MAP[rsv.status];
+  // レッスン開始時刻を過ぎているか（= 完了操作が妥当か）
+  const isPastStart = new Date(rsv.schedule.startAt).getTime() <= now;
+  return (
+    <div className="rounded-2xl bg-white ring-1 ring-stone-100 shadow-sm overflow-hidden">
+      <div className="flex items-stretch">
+        <div className={`w-1.5 shrink-0 ${rsv.schedule.lessonPlan.category === "ROUND" ? "bg-amber-400" : "bg-stone-700"}`} />
+        <div className="flex-1 min-w-0 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-medium text-stone-800 text-sm">{rsv.schedule.lessonPlan.name}</p>
+              <Badge variant="outline" className={`text-[10px] ${s.className}`}>{s.label}</Badge>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-sm font-medium text-stone-600">
+                ¥{(rsv.totalPrice ?? rsv.schedule.lessonPlan.price).toLocaleString()}
+              </p>
+              {rsv.optionSwingVideo && (
+                <p className="text-[10px] text-stone-400 mt-0.5">
+                  レッスン ¥{((rsv.totalPrice ?? rsv.schedule.lessonPlan.price) - 3000).toLocaleString()}
+                  {" + "}撮影 ¥3,000
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1 text-xs text-stone-500 mb-2">
+            <span className="flex items-center gap-1.5">
+              <User className="size-3 shrink-0" />
+              {rsv.user.name ?? rsv.user.email}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CalendarDays className="size-3 shrink-0" />
+              {format(new Date(rsv.schedule.startAt), "yyyy年M月d日（E） HH:mm", { locale: ja })} –{" "}
+              {(() => {
+                // 場所リクエスト・任意場所で 70分指定の場合は実際の終了時刻を表示
+                const start = new Date(rsv.schedule.startAt);
+                const end = rsv.requestedDuration
+                  ? new Date(start.getTime() + rsv.requestedDuration * 60 * 1000)
+                  : new Date(rsv.schedule.endAt);
+                return format(end, "HH:mm");
+              })()}
+              {rsv.requestedDuration && (
+                <span className="text-violet-700 font-medium">
+                  （{rsv.requestedDuration}分リクエスト）
+                </span>
+              )}
+            </span>
+            {(rsv.requestedLocation || rsv.schedule.location) && (
+              <span className="flex items-center gap-1.5">
+                <MapPin className="size-3 shrink-0" />
+                {rsv.requestedLocation ? (
+                  <>
+                    <span className="text-violet-700 font-medium">
+                      {rsv.indoorLocationType === "custom" ? "任意場所" : "店舗"}：
+                    </span>
+                    {rsv.requestedLocation}
+                  </>
+                ) : (
+                  rsv.schedule.location
+                )}
+              </span>
+            )}
+            {rsv.indoorLocationType === "custom" && (
+              <span className="text-violet-700 font-medium">
+                場所リクエスト枠（任意場所） / {rsv.requestedDuration}分 /{" "}
+                {rsv.usesTicketPack ? "4回チケット利用" : "単発"}
+              </span>
+            )}
+            {rsv.roundBookingType && (
+              <span className="text-amber-700 font-medium">
+                {rsv.roundBookingType === "private"
+                  ? `貸切・${rsv.roundParticipantCount ?? 1}名`
+                  : "組み合わせ予約（相席）"}
+              </span>
+            )}
+          </div>
+
+          {rsv.concern && (
+            <p className="text-xs text-stone-400 bg-stone-50 rounded-lg px-3 py-2 mb-3">
+              「{rsv.concern}」
+            </p>
+          )}
+
+          {actions.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-stone-100">
+              {actions.includes("approve") && (
+                <Button
+                  size="sm"
+                  className="h-7 text-xs bg-stone-800 hover:bg-stone-700 text-white rounded-full px-4"
+                  onClick={() => onAction(rsv, "approve")}
+                >
+                  <CheckCircle2 className="size-3.5 mr-1" />
+                  承認する
+                </Button>
+              )}
+              {actions.includes("complete") && (
+                <Button
+                  size="sm"
+                  className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-4 disabled:opacity-40"
+                  onClick={() => onAction(rsv, "complete")}
+                  disabled={!isPastStart}
+                  title={!isPastStart ? "レッスン開始時刻後に利用できます" : undefined}
+                >
+                  <CheckCircle2 className="size-3.5 mr-1" />
+                  レッスン完了にする
+                </Button>
+              )}
+              {actions.includes("revert_to_confirmed") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs text-stone-700 border-stone-300 hover:bg-stone-50 rounded-full px-4"
+                  onClick={() => onAction(rsv, "revert_to_confirmed")}
+                >
+                  予約確定に戻す
+                </Button>
+              )}
+              {actions.includes("cancel") && (
+                <Button
+                  size="sm"
+                  className="h-7 text-xs bg-red-600 hover:bg-red-700 text-white rounded-full px-4"
+                  onClick={() => onAction(rsv, "cancel")}
+                >
+                  <XCircle className="size-3.5 mr-1" />
+                  予約をキャンセル
+                </Button>
+              )}
+              {actions.includes("reject") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50 rounded-full px-4"
+                  onClick={() => onAction(rsv, "reject")}
+                >
+                  却下する
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-stone-200 py-12 text-center">
+      <Clock className="mb-2 size-8 text-stone-300" />
+      <p className="text-sm text-stone-400">{label}</p>
+    </div>
+  );
+}
+
 type Props = { reservations: Reservation[] };
 
 export function AdminReservationManager({ reservations: initial }: Props) {
   const router = useRouter();
   const [reservations, setReservations] = useState(initial);
+  // サーバーから新しい一覧が届いたら（router.refresh 後など）、表示をそれに合わせ直す。
+  // 画面を開いたままの間にお客様がキャンセルした、といった変化を取り込むため。
+  const [syncedInitial, setSyncedInitial] = useState(initial);
+  if (initial !== syncedInitial) {
+    setSyncedInitial(initial);
+    setReservations(initial);
+  }
   const [actionTarget, setActionTarget] = useState<{ rsv: Reservation; type: ActionType } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState<string>("");
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 「レッスン完了にする」は開始時刻を過ぎたら押せる。画面を開いたままでも反映されるよう毎分更新する
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+  const openAction = (rsv: Reservation, type: ActionType) => setActionTarget({ rsv, type });
 
   // アンマウント時に未クリアの setTimeout を必ず解除
   useEffect(() => {
@@ -55,10 +237,11 @@ export function AdminReservationManager({ reservations: initial }: Props) {
   const confirmed = reservations.filter((r) => r.status === "CONFIRMED");
   const others    = reservations.filter((r) => r.status === "COMPLETED" || r.status === "CANCELLED");
 
-  const showToast = (msg: string) => {
+  /** 失敗の案内は文章が長いので、読み終えられるよう長めに表示する */
+  const showToast = (msg: string, durationMs = 3000) => {
     setToast(msg);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
+    toastTimerRef.current = setTimeout(() => setToast(null), durationMs);
   };
 
   const handleAction = async () => {
@@ -75,11 +258,12 @@ export function AdminReservationManager({ reservations: initial }: Props) {
     // reject / cancel は理由を付与（顧客にメールで通知される）
     const trimmedReason = cancelReason.trim() || undefined;
 
-    const result =
-      type === "approve"  ? await approveReservation(rsv.id)  :
-      type === "reject"   ? await rejectReservation(rsv.id, trimmedReason)   :
-      type === "complete" ? await completeReservation(rsv.id) :
-      await updateReservationStatus(rsv.id, newStatus, trimmedReason);
+    const result = await callAction(() =>
+      type === "approve"  ? approveReservation(rsv.id)  :
+      type === "reject"   ? rejectReservation(rsv.id, trimmedReason)   :
+      type === "complete" ? completeReservation(rsv.id) :
+      updateReservationStatus(rsv.id, newStatus, trimmedReason)
+    );
 
     if (result.success) {
       setReservations((prev) =>
@@ -101,7 +285,9 @@ export function AdminReservationManager({ reservations: initial }: Props) {
       // サーバー側のデータ更新をRSCに反映
       router.refresh();
     } else {
-      showToast(result.error || "処理に失敗しました");
+      showToast(result.error || "処理に失敗しました", 10000);
+      // 予約の状態が画面と食い違っていた可能性があるので、最新の一覧を取り直す
+      router.refresh();
     }
 
     setIsProcessing(false);
@@ -109,165 +295,14 @@ export function AdminReservationManager({ reservations: initial }: Props) {
     setCancelReason("");
   };
 
-  const ReservationCard = ({ rsv, actions }: { rsv: Reservation; actions: ActionType[] }) => {
-    const s = STATUS_MAP[rsv.status];
-    // レッスン開始時刻を過ぎているか（= 完了操作が妥当か）
-    const isPastStart = new Date(rsv.schedule.startAt).getTime() <= Date.now();
-    return (
-      <div className="rounded-2xl bg-white ring-1 ring-stone-100 shadow-sm overflow-hidden">
-        <div className="flex items-stretch">
-          <div className={`w-1.5 shrink-0 ${rsv.schedule.lessonPlan.category === "ROUND" ? "bg-amber-400" : "bg-stone-700"}`} />
-          <div className="flex-1 min-w-0 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-medium text-stone-800 text-sm">{rsv.schedule.lessonPlan.name}</p>
-                <Badge variant="outline" className={`text-[10px] ${s.className}`}>{s.label}</Badge>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-sm font-medium text-stone-600">
-                  ¥{(rsv.totalPrice ?? rsv.schedule.lessonPlan.price).toLocaleString()}
-                </p>
-                {rsv.optionSwingVideo && (
-                  <p className="text-[10px] text-stone-400 mt-0.5">
-                    レッスン ¥{((rsv.totalPrice ?? rsv.schedule.lessonPlan.price) - 3000).toLocaleString()}
-                    {" + "}撮影 ¥3,000
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1 text-xs text-stone-500 mb-2">
-              <span className="flex items-center gap-1.5">
-                <User className="size-3 shrink-0" />
-                {rsv.user.name ?? rsv.user.email}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <CalendarDays className="size-3 shrink-0" />
-                {format(new Date(rsv.schedule.startAt), "yyyy年M月d日（E） HH:mm", { locale: ja })} –{" "}
-                {(() => {
-                  // 場所リクエスト・任意場所で 70分指定の場合は実際の終了時刻を表示
-                  const start = new Date(rsv.schedule.startAt);
-                  const end = rsv.requestedDuration
-                    ? new Date(start.getTime() + rsv.requestedDuration * 60 * 1000)
-                    : new Date(rsv.schedule.endAt);
-                  return format(end, "HH:mm");
-                })()}
-                {rsv.requestedDuration && (
-                  <span className="text-violet-700 font-medium">
-                    （{rsv.requestedDuration}分リクエスト）
-                  </span>
-                )}
-              </span>
-              {(rsv.requestedLocation || rsv.schedule.location) && (
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="size-3 shrink-0" />
-                  {rsv.requestedLocation ? (
-                    <>
-                      <span className="text-violet-700 font-medium">
-                        {rsv.indoorLocationType === "custom" ? "任意場所" : "店舗"}：
-                      </span>
-                      {rsv.requestedLocation}
-                    </>
-                  ) : (
-                    rsv.schedule.location
-                  )}
-                </span>
-              )}
-              {rsv.indoorLocationType === "custom" && (
-                <span className="text-violet-700 font-medium">
-                  場所リクエスト枠（任意場所） / {rsv.requestedDuration}分 /{" "}
-                  {rsv.usesTicketPack ? "4回チケット利用" : "単発"}
-                </span>
-              )}
-              {rsv.roundBookingType && (
-                <span className="text-amber-700 font-medium">
-                  {rsv.roundBookingType === "private"
-                    ? `貸切・${rsv.roundParticipantCount ?? 1}名`
-                    : "組み合わせ予約（相席）"}
-                </span>
-              )}
-            </div>
-
-            {rsv.concern && (
-              <p className="text-xs text-stone-400 bg-stone-50 rounded-lg px-3 py-2 mb-3">
-                「{rsv.concern}」
-              </p>
-            )}
-
-            {actions.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-2 border-t border-stone-100">
-                {actions.includes("approve") && (
-                  <Button
-                    size="sm"
-                    className="h-7 text-xs bg-stone-800 hover:bg-stone-700 text-white rounded-full px-4"
-                    onClick={() => setActionTarget({ rsv, type: "approve" })}
-                  >
-                    <CheckCircle2 className="size-3.5 mr-1" />
-                    承認する
-                  </Button>
-                )}
-                {actions.includes("complete") && (
-                  <Button
-                    size="sm"
-                    className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-4 disabled:opacity-40"
-                    onClick={() => setActionTarget({ rsv, type: "complete" })}
-                    disabled={!isPastStart}
-                    title={!isPastStart ? "レッスン開始時刻後に利用できます" : undefined}
-                  >
-                    <CheckCircle2 className="size-3.5 mr-1" />
-                    レッスン完了にする
-                  </Button>
-                )}
-                {actions.includes("revert_to_confirmed") && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs text-stone-700 border-stone-300 hover:bg-stone-50 rounded-full px-4"
-                    onClick={() => setActionTarget({ rsv, type: "revert_to_confirmed" })}
-                  >
-                    予約確定に戻す
-                  </Button>
-                )}
-                {actions.includes("cancel") && (
-                  <Button
-                    size="sm"
-                    className="h-7 text-xs bg-red-600 hover:bg-red-700 text-white rounded-full px-4"
-                    onClick={() => setActionTarget({ rsv, type: "cancel" })}
-                  >
-                    <XCircle className="size-3.5 mr-1" />
-                    予約をキャンセル
-                  </Button>
-                )}
-                {actions.includes("reject") && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50 rounded-full px-4"
-                    onClick={() => setActionTarget({ rsv, type: "reject" })}
-                  >
-                    却下する
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const EmptyState = ({ label }: { label: string }) => (
-    <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-stone-200 py-12 text-center">
-      <Clock className="mb-2 size-8 text-stone-300" />
-      <p className="text-sm text-stone-400">{label}</p>
-    </div>
-  );
-
   return (
     <>
       {/* トースト */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-full bg-stone-800 text-white text-sm px-5 py-2.5 shadow-lg">
+        <div
+          role="status"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-max max-w-[calc(100vw-2rem)] rounded-2xl bg-stone-800 text-white text-sm leading-relaxed px-5 py-2.5 shadow-lg"
+        >
           {toast}
         </div>
       )}
@@ -297,7 +332,7 @@ export function AdminReservationManager({ reservations: initial }: Props) {
           {pending.length === 0
             ? <EmptyState label="承認待ちのリクエストはありません" />
             : pending.map((r) => (
-                <ReservationCard key={r.id} rsv={r} actions={["approve", "reject"]} />
+                <ReservationCard key={r.id} rsv={r} actions={["approve", "reject"]} now={now} onAction={openAction} />
               ))
           }
         </TabsContent>
@@ -306,7 +341,7 @@ export function AdminReservationManager({ reservations: initial }: Props) {
           {confirmed.length === 0
             ? <EmptyState label="確定済みの予約はありません" />
             : confirmed.map((r) => (
-                <ReservationCard key={r.id} rsv={r} actions={["complete", "cancel"]} />
+                <ReservationCard key={r.id} rsv={r} actions={["complete", "cancel"]} now={now} onAction={openAction} />
               ))
           }
         </TabsContent>
@@ -319,7 +354,7 @@ export function AdminReservationManager({ reservations: initial }: Props) {
                 // CANCELLED: 操作なし
                 const actions: ActionType[] =
                   r.status === "COMPLETED" ? ["revert_to_confirmed", "cancel"] : [];
-                return <ReservationCard key={r.id} rsv={r} actions={actions} />;
+                return <ReservationCard key={r.id} rsv={r} actions={actions} now={now} onAction={openAction} />;
               })
           }
         </TabsContent>

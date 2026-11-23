@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Reservation } from "@/types";
 import { cancelReservationByCustomer } from "@/app/actions/reservations";
+import { callAction } from "@/lib/client/call-action";
 
 const STATUS_MAP: Record<
   Reservation["status"],
@@ -111,7 +112,8 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
 
   // 「今後のご予約」= リクエスト中/確定 かつ 開始時刻が未来（枠情報消失分は操作可能にするため今後扱い）
   // それ以外（実施済み・期限切れ・キャンセル）は「過去のレッスン」セクションへ
-  const now = Date.now();
+  // 表示のたびに境目が動かないよう、画面を開いた時点の時刻で判定する
+  const [now] = useState(() => Date.now());
   const isUpcoming = (rsv: Reservation) =>
     (rsv.status === "PENDING" || rsv.status === "CONFIRMED") &&
     (rsv.scheduleDataLost || rsv.schedule.startAt.getTime() >= now);
@@ -130,7 +132,7 @@ export function MyReservationList({ reservations: rawReservations }: Props) {
     if (!cancelTarget) return;
     setIsProcessing(true);
 
-    const result = await cancelReservationByCustomer(cancelTarget.id);
+    const result = await callAction(() => cancelReservationByCustomer(cancelTarget.id));
 
     if (result.success) {
       setReservations((prev) =>

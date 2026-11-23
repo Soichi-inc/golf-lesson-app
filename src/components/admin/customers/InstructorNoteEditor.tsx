@@ -7,6 +7,7 @@ import {
   deleteInstructorNote,
   updateInstructorNote,
 } from "@/app/actions/instructorNotes";
+import { callAction } from "@/lib/client/call-action";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -51,15 +52,21 @@ export function InstructorNoteEditor({ initialNotes, userId }: Props) {
 
   function onSubmit(values: NoteFormValues) {
     startTransition(async () => {
-      const result = await addInstructorNote({
-        userId,
-        content: values.content,
-        isPrivate: values.isPrivate,
-      });
+      const result = await callAction(() =>
+        addInstructorNote({
+          userId,
+          content: values.content,
+          isPrivate: values.isPrivate,
+        })
+      );
       if (result.success && result.note) {
-        setNotes((prev) => [result.note!, ...prev]);
+        const added = result.note;
+        setNotes((prev) => [added, ...prev]);
         form.reset({ content: "", isPrivate: true });
         setShowForm(false);
+      } else {
+        // 入力欄は閉じず、書いた文章を残したまま知らせる
+        alert(result.error || "指導メモの保存に失敗しました");
       }
     });
   }
@@ -67,9 +74,11 @@ export function InstructorNoteEditor({ initialNotes, userId }: Props) {
   function handleDelete(id: string) {
     if (!confirm("このメモを削除しますか？")) return;
     startTransition(async () => {
-      const result = await deleteInstructorNote(id);
+      const result = await callAction(() => deleteInstructorNote(id));
       if (result.success) {
         setNotes((prev) => prev.filter((n) => n.id !== id));
+      } else {
+        alert(result.error || "指導メモの削除に失敗しました");
       }
     });
   }

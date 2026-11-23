@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/form";
 import type { UserNote } from "@/types";
 import { addNote as addNoteAction, deleteNote as deleteNoteAction } from "@/app/actions/notes";
+import { callAction } from "@/lib/client/call-action";
 
 const noteSchema = z.object({
   title: z.string().max(100).optional(),
@@ -62,11 +63,13 @@ export function MyNoteSection({ notes: initialNotes, userId }: Props) {
     if (!userId) return;
     setErrorMessage(null);
 
-    const result = await addNoteAction({
-      title: values.title,
-      content: values.content,
-      category: values.category,
-    });
+    const result = await callAction(() =>
+      addNoteAction({
+        title: values.title,
+        content: values.content,
+        category: values.category,
+      })
+    );
 
     if (result.success && result.note) {
       setNotes((prev) => [hydrateNote(result.note!), ...prev]);
@@ -79,7 +82,7 @@ export function MyNoteSection({ notes: initialNotes, userId }: Props) {
 
   async function handleDelete(id: string) {
     setErrorMessage(null);
-    const result = await deleteNoteAction(id);
+    const result = await callAction(() => deleteNoteAction(id));
     if (result.success) {
       setNotes((prev) => prev.filter((n) => n.id !== id));
     } else {

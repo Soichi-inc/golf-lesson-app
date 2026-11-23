@@ -7,11 +7,12 @@ import { instructorNoteEmail } from "@/lib/email/templates";
 import { requireAdmin, requireUser, handleActionError } from "@/lib/auth/guard";
 import {
   readInstructorNoteRecords,
-  writeInstructorNoteRecords,
+  updateInstructorNoteRecords,
   toInstructorNote,
   applyInstructorNoteUpdate,
   type InstructorNoteRecord,
 } from "@/lib/data/instructorNotes";
+import { newRecordId } from "@/lib/data/ids";
 
 /** 管理者用: ユーザーの全指導メモを取得（ADMIN専用） */
 export async function getInstructorNotesByUserId(
@@ -48,22 +49,23 @@ export async function addInstructorNote(input: {
 }): Promise<{ success: boolean; note?: InstructorNote; error?: string }> {
   try {
     await requireAdmin();
-    const records = await readInstructorNoteRecords();
-    const id = `inote-${Date.now()}`;
-    const now = new Date().toISOString();
+    if (!input.content.trim()) {
+      return { success: false, error: "内容を入力してください" };
+    }
 
-    const record: InstructorNoteRecord = {
-      id,
-      userId: input.userId,
-      lessonRecordId: null,
-      content: input.content,
-      isPrivate: input.isPrivate,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    records.push(record);
-    await writeInstructorNoteRecords(records);
+    const record = await updateInstructorNoteRecords((records) => {
+      const now = new Date();
+      const created: InstructorNoteRecord = {
+        id: newRecordId("inote", records, now.getTime()),
+        userId: input.userId,
+        lessonRecordId: null,
+        content: input.content,
+        isPrivate: input.isPrivate,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+      return { data: [...records, created], result: created };
+    });
 
     // 公開メモの場合、顧客にメール通知
     if (!input.isPrivate) {
@@ -93,22 +95,23 @@ export async function updateInstructorNote(
       return { success: false, error: "内容を入力してください" };
     }
 
-    const result = applyInstructorNoteUpdate(
-      await readInstructorNoteRecords(),
-      noteId,
-      { content: input.content, isPrivate: input.isPrivate },
-      new Date().toISOString()
-    );
+    const result = await updateInstructorNoteRecords((records) => {
+      const applied = applyInstructorNoteUpdate(
+        records,
+        noteId,
+        { content: input.content, isPrivate: input.isPrivate },
+        new Date().toISOString()
+      );
+      return applied ? { data: applied.records, result: applied } : { result: null };
+    });
     if (!result) {
-      // 読み込みの一時的な失敗でもここに来る。再読み込みすると編集中の文章が消えるため、先に再試行を案内する
+      // 編集中に、別の画面でこのメモが削除された場合。書いた文章を失わないよう先にコピーを案内する
       return {
         success: false,
         error:
-          "メモを保存できませんでした。少し待ってからもう一度「保存」を押してください。繰り返し失敗する場合は、本文をコピーしてから画面を再読み込みしてください。",
+          "このメモは見つかりませんでした（別の画面で削除された可能性があります）。本文をコピーしてから、画面を再読み込みしてご確認ください。",
       };
     }
-
-    await writeInstructorNoteRecords(result.records);
 
     if (result.becamePublic) {
       await sendNotificationEmail(result.updated.userId, result.updated.content).catch(
@@ -131,9 +134,10 @@ export async function deleteInstructorNote(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await requireAdmin();
-    const records = await readInstructorNoteRecords();
-    const filtered = records.filter((r) => r.id !== noteId);
-    await writeInstructorNoteRecords(filtered);
+    await updateInstructorNoteRecords((records) => ({
+      data: records.filter((r) => r.id !== noteId),
+      result: null,
+    }));
     return { success: true };
   } catch (e) {
     return handleActionError(e, "指導メモの削除に失敗しました");

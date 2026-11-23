@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { storageErrorMessage } from "@/lib/storage-core";
 
 export type AuthedUser = {
   id: string;
@@ -70,7 +71,12 @@ export class AuthError extends Error {
 }
 
 /**
- * サーバーアクションでAuthErrorを捕捉して成功・失敗のobjectを返す
+ * サーバーアクションで例外を捕捉して成功・失敗のobjectを返す
+ *
+ * - AuthError: そのままの文言（ログインが必要です 等）
+ * - StorageError: 「もう一度お試しください」等、次に取る行動がわかる文言
+ *   （詳細は発生箇所でログ出力済み）
+ * - それ以外: 呼び出し元が指定した文言
  */
 export function handleActionError(
   e: unknown,
@@ -78,6 +84,10 @@ export function handleActionError(
 ): { success: false; error: string } {
   if (e instanceof AuthError) {
     return { success: false, error: e.message };
+  }
+  const storageMessage = storageErrorMessage(e);
+  if (storageMessage) {
+    return { success: false, error: storageMessage };
   }
   console.error(e);
   return { success: false, error: fallback };

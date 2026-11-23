@@ -50,16 +50,22 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+function newPlanId(): string {
+  return `plan-${Date.now()}`;
+}
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   plan?: PlanData; // undefined = 新規作成
-  onSave: (plan: PlanData) => void;
+  /** 保存できたら null、失敗したら画面に出すエラー文言を返す */
+  onSave: (plan: PlanData) => Promise<string | null>;
 };
 
 export function PlanEditDialog({ open, onOpenChange, plan, onSave }: Props) {
   const isEditing = !!plan;
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -99,6 +105,7 @@ export function PlanEditDialog({ open, onOpenChange, plan, onSave }: Props) {
 
   async function onSubmit(values: FormValues) {
     setSaving(true);
+    setSaveError(null);
     const cleanedHighlights = values.highlights
       .map((h) => h.value.trim())
       .filter((v) => v.length > 0);
@@ -107,7 +114,7 @@ export function PlanEditDialog({ open, onOpenChange, plan, onSave }: Props) {
       .filter((v) => v.length > 0);
 
     const planData: PlanData = {
-      id: plan?.id || `plan-${Date.now()}`,
+      id: plan?.id || newPlanId(),
       name: values.name,
       category: values.category,
       tagLabel: values.tagLabel,
@@ -121,8 +128,13 @@ export function PlanEditDialog({ open, onOpenChange, plan, onSave }: Props) {
       highlights: cleanedHighlights.length > 0 ? cleanedHighlights : undefined,
       details: cleanedDetails,
     };
-    onSave(planData);
+    // 保存できたときだけ閉じる。失敗時は入力内容を残したままエラーを表示する
+    const error = await onSave(planData);
     setSaving(false);
+    if (error) {
+      setSaveError(error);
+      return;
+    }
     onOpenChange(false);
   }
 
@@ -389,11 +401,18 @@ export function PlanEditDialog({ open, onOpenChange, plan, onSave }: Props) {
               </div>
             </div>
 
+            {saveError && (
+              <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+                {saveError}
+              </p>
+            )}
+
             <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                disabled={saving}
               >
                 キャンセル
               </Button>

@@ -1,6 +1,6 @@
 "use server";
 
-import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
+import { readJsonFromStorage, updateJsonInStorage } from "@/lib/storage";
 import { requireAdmin, handleActionError } from "@/lib/auth/guard";
 
 // プロフィールデータの型
@@ -46,7 +46,9 @@ const defaultProfile: ProfileData = {
 const PROFILE_PATH = "profile.json";
 
 export async function getProfile(): Promise<ProfileData> {
-  return readJsonFromStorage<ProfileData>(PROFILE_PATH, defaultProfile);
+  return readJsonFromStorage<ProfileData>(PROFILE_PATH, defaultProfile, {
+    shape: "object",
+  });
 }
 
 /** プロフィール保存（ADMIN専用） */
@@ -55,7 +57,13 @@ export async function saveProfile(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await requireAdmin();
-    await writeJsonToStorage(PROFILE_PATH, data);
+    // プロフィールは 1 つのフォームでまるごと編集するデータなので、全体を置き換える
+    await updateJsonInStorage<ProfileData, null>(
+      PROFILE_PATH,
+      defaultProfile,
+      () => ({ data, result: null }),
+      { shape: "object" }
+    );
     return { success: true };
   } catch (err) {
     return handleActionError(err, "プロフィールの保存に失敗しました");

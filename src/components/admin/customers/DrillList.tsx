@@ -29,6 +29,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { addDrill, deleteDrill } from "@/app/actions/drills";
+import { callAction } from "@/lib/client/call-action";
 import type { Drill } from "@/types";
 
 const STATUS_MAP: Record<
@@ -95,13 +96,15 @@ export function DrillList({ drills: rawDrills, userId }: Props) {
 
   async function onSubmit(values: DrillFormValues) {
     setSaving(true);
-    const result = await addDrill({
-      userId,
-      title: values.title,
-      description: values.description,
-      videoUrl: values.videoUrl || undefined,
-      dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : undefined,
-    });
+    const result = await callAction(() =>
+      addDrill({
+        userId,
+        title: values.title,
+        description: values.description,
+        videoUrl: values.videoUrl || undefined,
+        dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : undefined,
+      })
+    );
     setSaving(false);
 
     if (result.success && result.drill) {
@@ -120,7 +123,7 @@ export function DrillList({ drills: rawDrills, userId }: Props) {
     const deleted = drills.find((d) => d.id === id);
     setDrills((prev) => prev.filter((d) => d.id !== id));
 
-    const result = await deleteDrill(id);
+    const result = await callAction(() => deleteDrill(id));
     if (!result.success) {
       if (deleted) setDrills((prev) => [...prev, deleted]);
       alert(result.error || "削除に失敗しました");
@@ -331,6 +334,7 @@ export function DrillList({ drills: rawDrills, userId }: Props) {
                         size="icon"
                         className="size-7 text-stone-300 hover:text-red-400 hover:bg-red-50"
                         onClick={() => handleDelete(drill.id)}
+                        aria-label="ドリルを削除"
                       >
                         <Trash2 className="size-3.5" />
                       </Button>

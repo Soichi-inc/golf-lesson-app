@@ -46,6 +46,25 @@ function flexInfoRows(flex: ReservationFlexInfo): string {
 }
 
 /** 日本時間に変換してフォーマット */
+/**
+ * メール本文（HTML）に差し込む文字列を無害化する。
+ * お客様や講師が入力した文章に < や & が含まれていても、タグとして解釈されず
+ * 入力したとおりの文字で表示されるようにする（件名はテキストなので対象外）。
+ */
+function esc(value: string | number | null | undefined): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** 複数行の文章用: 無害化したうえで改行を保つ */
+function escMultiline(value: string | null | undefined): string {
+  return esc(value).replace(/\r?\n/g, "<br>");
+}
+
 function fmtJST(date: Date | string, fmt: string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return format(toZonedTime(d, TZ), fmt, { locale: ja });
@@ -112,7 +131,7 @@ function scheduleTable(
         </tr>
         <tr>
           <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
-          <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
+          <td style="padding:6px 0;">${esc(schedule.lessonPlan.name)}</td>
         </tr>
         <tr>
           <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
@@ -121,12 +140,12 @@ function scheduleTable(
         ${schedule.teeOffTime ? `
         <tr>
           <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">ティーオフ</td>
-          <td style="padding:6px 0;font-weight:500;color:#d97706;">${schedule.teeOffTime}</td>
+          <td style="padding:6px 0;font-weight:500;color:#d97706;">${esc(schedule.teeOffTime)}</td>
         </tr>` : ""}
         ${locationToShow ? `
         <tr>
           <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
-          <td style="padding:6px 0;${flex?.requestedLocation ? "color:#7c3aed;font-weight:500;" : ""}">${locationToShow}</td>
+          <td style="padding:6px 0;${flex?.requestedLocation ? "color:#7c3aed;font-weight:500;" : ""}">${esc(locationToShow)}</td>
         </tr>` : ""}
         ${flex?.indoorLocationType === "custom" && flex.requestedDuration ? `
         <tr>
@@ -136,7 +155,7 @@ function scheduleTable(
         ${schedule.note ? `
         <tr>
           <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">備考</td>
-          <td style="padding:6px 0;">${schedule.note}</td>
+          <td style="padding:6px 0;">${esc(schedule.note)}</td>
         </tr>` : ""}
         <tr>
           <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">料金</td>
@@ -170,7 +189,7 @@ export function reservationRequestEmail(
       ${concern ? `
       <div style="background:#fffbeb;border-radius:12px;padding:16px;margin-bottom:24px;">
         <p style="margin:0 0 4px;color:#a8a29e;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">お悩み・ご質問</p>
-        <p style="margin:0;color:#44403c;font-size:13px;line-height:1.7;">${concern}</p>
+        <p style="margin:0;color:#44403c;font-size:13px;line-height:1.7;">${escMultiline(concern)}</p>
       </div>` : ""}
 
       <a href="${APP_URL}/mypage/reservations" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
@@ -235,7 +254,66 @@ export function reservationRejectedEmail(
       ${reason ? `
       <div style="background:#fef2f2;border-radius:12px;padding:16px;margin-bottom:24px;">
         <p style="margin:0 0 4px;color:#a8a29e;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">理由</p>
-        <p style="margin:0;color:#44403c;font-size:13px;line-height:1.7;">${reason}</p>
+        <p style="margin:0;color:#44403c;font-size:13px;line-height:1.7;">${escMultiline(reason)}</p>
+      </div>` : ""}
+
+      <a href="${APP_URL}/schedule" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
+        他の日程を探す
+      </a>
+    `),
+  };
+}
+
+/**
+ * 講師側でのキャンセルのお知らせ（ユーザー向け）
+ * 管理画面の「予約をキャンセル」から送る。7日前を過ぎてお客様から連絡を受けた
+ * キャンセルにも、講師都合のキャンセルにも使うので、理由を決めつけない文面にする。
+ */
+export function reservationCancelledByAdminEmail(
+  schedule: Schedule,
+  reason?: string,
+  flex?: ReservationFlexInfo
+): { subject: string; html: string } {
+  const dateStr = fmtJST(schedule.startAt, "yyyy年M月d日（E）");
+  const startMs = new Date(schedule.startAt).getTime();
+  const endDate =
+    flex?.requestedDuration
+      ? new Date(startMs + flex.requestedDuration * 60 * 1000)
+      : new Date(schedule.endAt);
+  const location = flex?.requestedLocation ?? schedule.location;
+
+  return {
+    subject: `【予約キャンセルのお知らせ】${dateStr} ${schedule.lessonPlan.name}`,
+    html: wrap(`
+      <h2 style="margin:0 0 8px;color:#292524;font-size:18px;font-weight:500;">
+        ご予約をキャンセルしました
+      </h2>
+      <p style="margin:0 0 16px;color:#78716c;font-size:14px;line-height:1.7;">
+        以下のレッスンのご予約をキャンセルいたしました。<br>
+        ご不明な点がございましたら、LINE公式アカウントよりお問い合わせください。
+      </p>
+      <div style="background:#fafaf9;border-radius:12px;padding:20px;margin:16px 0 24px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">プラン</td>
+            <td style="padding:6px 0;">${esc(schedule.lessonPlan.name)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
+            <td style="padding:6px 0;">${dateStr} ${fmtJST(schedule.startAt, "HH:mm")} – ${fmtJST(endDate, "HH:mm")}</td>
+          </tr>
+          ${location ? `
+          <tr>
+            <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
+            <td style="padding:6px 0;">${esc(location)}</td>
+          </tr>` : ""}
+        </table>
+      </div>
+
+      ${reason ? `
+      <div style="background:#fafaf9;border-radius:12px;padding:16px;margin-bottom:24px;">
+        <p style="margin:0 0 4px;color:#a8a29e;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">理由</p>
+        <p style="margin:0;color:#44403c;font-size:13px;line-height:1.7;">${escMultiline(reason)}</p>
       </div>` : ""}
 
       <a href="${APP_URL}/schedule" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
@@ -272,11 +350,11 @@ export function adminNewReservationEmail(
         <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
           <tr>
             <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">お客様</td>
-            <td style="padding:6px 0;font-weight:500;">${userName}<br><span style="color:#78716c;font-weight:normal;">${userEmail}</span></td>
+            <td style="padding:6px 0;font-weight:500;">${esc(userName)}<br><span style="color:#78716c;font-weight:normal;">${esc(userEmail)}</span></td>
           </tr>
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
-            <td style="padding:6px 0;">${schedule.lessonPlan.name}${flex?.indoorLocationType ? "（場所リクエスト枠）" : ""}</td>
+            <td style="padding:6px 0;">${esc(schedule.lessonPlan.name)}${flex?.indoorLocationType ? "（場所リクエスト枠）" : ""}</td>
           </tr>
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
@@ -285,23 +363,23 @@ export function adminNewReservationEmail(
           ${schedule.teeOffTime ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">ティーオフ</td>
-            <td style="padding:6px 0;font-weight:500;color:#d97706;">${schedule.teeOffTime}</td>
+            <td style="padding:6px 0;font-weight:500;color:#d97706;">${esc(schedule.teeOffTime)}</td>
           </tr>` : ""}
           ${flex?.requestedLocation || schedule.location ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
-            <td style="padding:6px 0;${flex?.requestedLocation ? "color:#7c3aed;font-weight:500;" : ""}">${flex?.requestedLocation ?? schedule.location}</td>
+            <td style="padding:6px 0;${flex?.requestedLocation ? "color:#7c3aed;font-weight:500;" : ""}">${esc(flex?.requestedLocation ?? schedule.location)}</td>
           </tr>` : ""}
           ${flexInfoRows(flex ?? { indoorLocationType: null, requestedLocation: null, requestedDuration: null, usesTicketPack: null })}
           ${flex?.requestedCourse ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">希望コース</td>
-            <td style="padding:6px 0;color:#d97706;font-weight:500;">${flex.requestedCourse}</td>
+            <td style="padding:6px 0;color:#d97706;font-weight:500;">${esc(flex.requestedCourse)}</td>
           </tr>` : ""}
           ${flex?.emergencyPhone ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">緊急連絡先</td>
-            <td style="padding:6px 0;font-weight:500;">${flex.emergencyPhone}</td>
+            <td style="padding:6px 0;font-weight:500;">${esc(flex.emergencyPhone)}</td>
           </tr>` : ""}
           ${typeof flex?.totalPrice === "number" ? `
           <tr>
@@ -311,7 +389,7 @@ export function adminNewReservationEmail(
           ${concern ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">相談内容</td>
-            <td style="padding:6px 0;">${concern}</td>
+            <td style="padding:6px 0;">${escMultiline(concern)}</td>
           </tr>` : ""}
         </table>
       </div>
@@ -346,11 +424,11 @@ export function adminReservationApprovedEmail(
         <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
           <tr>
             <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">お客様</td>
-            <td style="padding:6px 0;font-weight:500;">${userName}<br><span style="color:#78716c;font-weight:normal;">${userEmail}</span></td>
+            <td style="padding:6px 0;font-weight:500;">${esc(userName)}<br><span style="color:#78716c;font-weight:normal;">${esc(userEmail)}</span></td>
           </tr>
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
-            <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
+            <td style="padding:6px 0;">${esc(schedule.lessonPlan.name)}</td>
           </tr>
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
@@ -359,7 +437,7 @@ export function adminReservationApprovedEmail(
           ${flex?.requestedLocation || schedule.location ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
-            <td style="padding:6px 0;${flex?.requestedLocation ? "color:#7c3aed;font-weight:500;" : ""}">${flex?.requestedLocation ?? schedule.location}</td>
+            <td style="padding:6px 0;${flex?.requestedLocation ? "color:#7c3aed;font-weight:500;" : ""}">${esc(flex?.requestedLocation ?? schedule.location)}</td>
           </tr>` : ""}
           ${flexInfoRows(flex ?? { indoorLocationType: null, requestedLocation: null, requestedDuration: null, usesTicketPack: null })}
         </table>
@@ -398,11 +476,11 @@ export function adminReservationCancelledByCustomerEmail(
         <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
           <tr>
             <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">お客様</td>
-            <td style="padding:6px 0;font-weight:500;">${userName}<br><span style="color:#78716c;font-weight:normal;">${userEmail}</span></td>
+            <td style="padding:6px 0;font-weight:500;">${esc(userName)}<br><span style="color:#78716c;font-weight:normal;">${esc(userEmail)}</span></td>
           </tr>
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
-            <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
+            <td style="padding:6px 0;">${esc(schedule.lessonPlan.name)}</td>
           </tr>
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
@@ -411,12 +489,12 @@ export function adminReservationCancelledByCustomerEmail(
           ${schedule.teeOffTime ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">ティーオフ</td>
-            <td style="padding:6px 0;font-weight:500;color:#d97706;">${schedule.teeOffTime}</td>
+            <td style="padding:6px 0;font-weight:500;color:#d97706;">${esc(schedule.teeOffTime)}</td>
           </tr>` : ""}
           ${flex?.requestedLocation || schedule.location ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
-            <td style="padding:6px 0;${flex?.requestedLocation ? "color:#7c3aed;font-weight:500;" : ""}">${flex?.requestedLocation ?? schedule.location}</td>
+            <td style="padding:6px 0;${flex?.requestedLocation ? "color:#7c3aed;font-weight:500;" : ""}">${esc(flex?.requestedLocation ?? schedule.location)}</td>
           </tr>` : ""}
         </table>
       </div>
@@ -452,7 +530,7 @@ export function reservationCancelledByCustomerEmail(
         <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
           <tr>
             <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">プラン</td>
-            <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
+            <td style="padding:6px 0;">${esc(schedule.lessonPlan.name)}</td>
           </tr>
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
@@ -461,7 +539,7 @@ export function reservationCancelledByCustomerEmail(
           ${flex?.requestedLocation || schedule.location ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">場所</td>
-            <td style="padding:6px 0;">${flex?.requestedLocation ?? schedule.location}</td>
+            <td style="padding:6px 0;">${esc(flex?.requestedLocation ?? schedule.location)}</td>
           </tr>` : ""}
         </table>
       </div>
@@ -516,12 +594,12 @@ export function instructorNoteEmail(
         講師からメモが届きました
       </h2>
       <p style="margin:0 0 24px;color:#78716c;font-size:14px;line-height:1.7;">
-        ${customerName}様、講師から新しい指導メモが投稿されました。
+        ${esc(customerName)}様、講師から新しい指導メモが投稿されました。
       </p>
 
       <div style="background:#fafaf9;border-radius:12px;padding:20px;margin-bottom:24px;">
         <p style="margin:0 0 4px;color:#a8a29e;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">指導メモ</p>
-        <p style="margin:0;color:#44403c;font-size:13px;line-height:1.7;white-space:pre-wrap;">${noteContent}</p>
+        <p style="margin:0;color:#44403c;font-size:13px;line-height:1.7;white-space:pre-wrap;">${esc(noteContent)}</p>
       </div>
 
       <a href="${APP_URL}/mypage/instructor-notes" style="display:inline-block;background:#292524;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-size:13px;font-weight:500;">
@@ -559,11 +637,11 @@ export function adminReservationRejectedEmail(
         <table style="width:100%;border-collapse:collapse;font-size:13px;color:#44403c;">
           <tr>
             <td style="padding:6px 0;color:#a8a29e;width:80px;vertical-align:top;">お客様</td>
-            <td style="padding:6px 0;font-weight:500;">${userName}<br><span style="color:#78716c;font-weight:normal;">${userEmail}</span></td>
+            <td style="padding:6px 0;font-weight:500;">${esc(userName)}<br><span style="color:#78716c;font-weight:normal;">${esc(userEmail)}</span></td>
           </tr>
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">プラン</td>
-            <td style="padding:6px 0;">${schedule.lessonPlan.name}</td>
+            <td style="padding:6px 0;">${esc(schedule.lessonPlan.name)}</td>
           </tr>
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">日時</td>
@@ -572,7 +650,7 @@ export function adminReservationRejectedEmail(
           ${flex?.requestedLocation ? `
           <tr>
             <td style="padding:6px 0;color:#a8a29e;vertical-align:top;">リクエスト場所</td>
-            <td style="padding:6px 0;color:#7c3aed;font-weight:500;">${flex.requestedLocation}</td>
+            <td style="padding:6px 0;color:#7c3aed;font-weight:500;">${esc(flex.requestedLocation)}</td>
           </tr>` : ""}
         </table>
       </div>

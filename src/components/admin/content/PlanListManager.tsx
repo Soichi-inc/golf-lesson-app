@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  AlertCircle,
   Clock,
   Users,
   CheckCircle2,
@@ -13,7 +14,8 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { savePlans, type PlanData } from "@/app/actions/plans";
+import { upsertPlan, deletePlan, type PlanData } from "@/app/actions/plans";
+import { callAction } from "@/lib/client/call-action";
 import { PlanEditDialog } from "./PlanEditDialog";
 
 const colorMap: Record<string, { badge: string; bar: string }> = {
@@ -31,39 +33,57 @@ export function PlanListManager({ initialPlans }: Props) {
   const [editingPlan, setEditingPlan] = useState<PlanData | undefined>();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState("");
+  const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function handleSave(plan: PlanData) {
-    setSaving(true);
-    setSaveMsg("");
+  useEffect(() => {
+    return () => {
+      if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    };
+  }, []);
 
-    const updated = editingPlan
-      ? plans.map((p) => (p.id === plan.id ? plan : p))
-      : [...plans, plan];
-
-    const result = await savePlans(updated);
-    if (result.success) {
-      setPlans(updated);
-      setSaveMsg("保存しました");
-      setTimeout(() => setSaveMsg(""), 3000);
-    } else {
-      setSaveMsg(result.error || "保存に失敗しました");
+  /** 成功の表示は 3 秒で消す。失敗の表示は読み終えるまで残す */
+  function showNotice(kind: "ok" | "error", text: string) {
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    setNotice({ kind, text });
+    if (kind === "ok") {
+      noticeTimer.current = setTimeout(() => setNotice(null), 3000);
     }
+  }
+
+  /**
+   * 1 件だけサーバーへ送って保存する。失敗したらエラー文言を返す（ダイアログ側で表示し、
+   * 入力内容を残す）。サーバーが返す最新の一覧で表示を更新するので、別の端末で
+   * 行われた変更もここで取り込まれる。
+   */
+  async function handleSave(plan: PlanData): Promise<string | null> {
+    setSaving(true);
+    setNotice(null);
+    const result = await callAction(() => upsertPlan(plan));
     setSaving(false);
+
+    if (!result.success || !result.plans) {
+      return result.error || "保存に失敗しました";
+    }
+    setPlans(result.plans);
+    showNotice("ok", "保存しました");
     setEditingPlan(undefined);
+    return null;
   }
 
   async function handleDelete(planId: string) {
     if (!confirm("このプランを削除しますか？")) return;
     setSaving(true);
-    const updated = plans.filter((p) => p.id !== planId);
-    const result = await savePlans(updated);
-    if (result.success) {
-      setPlans(updated);
-      setSaveMsg("削除しました");
-      setTimeout(() => setSaveMsg(""), 3000);
-    }
+    setNotice(null);
+    const result = await callAction(() => deletePlan(planId));
     setSaving(false);
+
+    if (result.success && result.plans) {
+      setPlans(result.plans);
+      showNotice("ok", "削除しました");
+    } else {
+      showNotice("error", result.error || "削除に失敗しました");
+    }
   }
 
   function openCreate() {
@@ -79,19 +99,29 @@ export function PlanListManager({ initialPlans }: Props) {
   return (
     <div className="space-y-6">
       {/* ヘッダー */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
           {saving && <Loader2 className="size-4 animate-spin text-stone-400" />}
-          {saveMsg && (
-            <span className="flex items-center gap-1 text-sm text-green-600">
-              <CheckCircle2 className="size-4" /> {saveMsg}
+          {notice && (
+            <span
+              role={notice.kind === "error" ? "alert" : "status"}
+              className={`flex items-start gap-1 text-sm ${
+                notice.kind === "error" ? "text-red-600" : "text-green-600"
+              }`}
+            >
+              {notice.kind === "error" ? (
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              ) : (
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+              )}
+              {notice.text}
             </span>
           )}
         </div>
         <Button
           onClick={openCreate}
           size="sm"
-          className="bg-stone-800 hover:bg-stone-700 gap-1.5"
+          className="shrink-0 bg-stone-800 hover:bg-stone-700 gap-1.5"
         >
           <Plus className="size-4" /> プラン追加
         </Button>
@@ -155,6 +185,7 @@ export function PlanListManager({ initialPlans }: Props) {
                       size="icon"
                       className="size-8 text-stone-400 hover:text-stone-700"
                       onClick={() => openEdit(plan)}
+                      aria-label="プランを編集"
                     >
                       <Pencil className="size-3.5" />
                     </Button>
@@ -163,6 +194,8 @@ export function PlanListManager({ initialPlans }: Props) {
                       size="icon"
                       className="size-8 text-stone-400 hover:text-red-500"
                       onClick={() => handleDelete(plan.id)}
+                      disabled={saving}
+                      aria-label="プランを削除"
                     >
                       <Trash2 className="size-3.5" />
                     </Button>
@@ -172,6 +205,7 @@ export function PlanListManager({ initialPlans }: Props) {
                 <div className="flex items-baseline gap-2 mb-4">
                   <p className="text-lg font-light text-stone-800">
                     ¥{plan.price.toLocaleString()}
+                    {plan.priceFrom ? "〜" : ""}
                   </p>
                   <p className="text-[11px] text-stone-400">
                     {plan.priceNote ?? "税込"}

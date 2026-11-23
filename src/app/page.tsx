@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Award, MapPin, Clock, Users, CheckCircle2, Instagram, Youtube, MessageCircle, ChevronRight, Play } from "lucide-react";
+import { Award, MapPin, Clock, Users, CheckCircle2, Instagram, Youtube, MessageCircle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CustomerHeader } from "@/components/customer/Header";
 import { CustomerFooter } from "@/components/customer/Footer";

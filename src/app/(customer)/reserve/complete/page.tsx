@@ -3,7 +3,7 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const metadata: Metadata = { title: "予約完了" };
+export const metadata: Metadata = { title: "予約リクエスト受付" };
 
 export default function ReserveCompletePage() {
   return (
@@ -15,12 +15,15 @@ export default function ReserveCompletePage() {
           </div>
         </div>
         <h1 className="text-2xl font-light tracking-wide text-stone-800 mb-3">
-          予約が完了しました
+          予約リクエストを受け付けました
         </h1>
-        <p className="text-sm text-stone-500 leading-relaxed mb-8">
-          ご登録のメールアドレスに確認メールをお送りしました。
-          <br />
-          当日お会いできることを楽しみにしています！
+        <p className="text-sm text-stone-500 leading-relaxed mb-3">
+          ご登録のメールアドレスに受付メールをお送りしました。
+          講師が内容を確認し、承認されるとご予約が確定します。
+          確定のご連絡もメールでお届けします。
+        </p>
+        <p className="text-xs text-stone-400 leading-relaxed mb-8">
+          メールが届かない場合は、迷惑メールフォルダをご確認ください。
         </p>
         <div className="flex flex-col sm:flex-row justify-center gap-3">
           <Button asChild variant="outline" className="rounded-full border-stone-300">

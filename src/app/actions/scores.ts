@@ -4,10 +4,11 @@ import type { RoundScore } from "@/types";
 import { requireUser, handleActionError } from "@/lib/auth/guard";
 import {
   readScoreRecords,
-  writeScoreRecords,
+  updateScoreRecords,
   toRoundScore,
   type ScoreRecord,
 } from "@/lib/data/scores";
+import { newRecordId } from "@/lib/data/ids";
 
 /** スコアを追加（所有者本人のみ） */
 export async function addScore(input: {
@@ -37,27 +38,24 @@ export async function addScore(input: {
       return { success: false, error: "スコアは50〜300の範囲で入力してください" };
     }
 
-    const records = await readScoreRecords();
-    const id = `score-${Date.now()}`;
-    const now = new Date().toISOString();
-
-    const record: ScoreRecord = {
-      id,
-      userId: user.id,
-      playedAt: playedAtDate.toISOString(),
-      courseName: input.courseName,
-      score: input.score,
-      outScore: input.outScore ?? null,
-      inScore: input.inScore ?? null,
-      fairwayHit: null,
-      putts: input.putts ?? null,
-      memo: input.memo ?? null,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    records.push(record);
-    await writeScoreRecords(records);
+    const record = await updateScoreRecords((records) => {
+      const now = new Date();
+      const created: ScoreRecord = {
+        id: newRecordId("score", records, now.getTime()),
+        userId: user.id,
+        playedAt: playedAtDate.toISOString(),
+        courseName: input.courseName,
+        score: input.score,
+        outScore: input.outScore ?? null,
+        inScore: input.inScore ?? null,
+        fairwayHit: null,
+        putts: input.putts ?? null,
+        memo: input.memo ?? null,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+      return { data: [...records, created], result: created };
+    });
     return { success: true, score: toRoundScore(record) };
   } catch (e) {
     return handleActionError(e, "スコアの保存に失敗しました");
@@ -80,17 +78,18 @@ export async function deleteScore(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requireUser();
-    const records = await readScoreRecords();
-    const target = records.find((r) => r.id === scoreId);
-    if (!target) return { success: false, error: "スコアが見つかりません" };
+    return await updateScoreRecords<{ success: boolean; error?: string }>((records) => {
+      const target = records.find((r) => r.id === scoreId);
+      if (!target) return { result: { success: false, error: "スコアが見つかりません" } };
 
-    if (user.role !== "ADMIN" && target.userId !== user.id) {
-      return { success: false, error: "このスコアは削除できません" };
-    }
-
-    const filtered = records.filter((r) => r.id !== scoreId);
-    await writeScoreRecords(filtered);
-    return { success: true };
+      if (user.role !== "ADMIN" && target.userId !== user.id) {
+        return { result: { success: false, error: "このスコアは削除できません" } };
+      }
+      return {
+        data: records.filter((r) => r.id !== scoreId),
+        result: { success: true },
+      };
+    });
   } catch (e) {
     return handleActionError(e, "スコアの削除に失敗しました");
   }

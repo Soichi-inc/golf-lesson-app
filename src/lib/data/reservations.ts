@@ -20,7 +20,16 @@ import type {
   Schedule,
 } from "@/types";
 import { getSchedules } from "@/app/actions/schedules";
-import { readJsonFromStorage, writeJsonToStorage } from "@/lib/storage";
+import { newRecordId } from "@/lib/data/ids";
+import {
+  applyReservationStatusChange,
+  checkReservationCapacity,
+} from "@/lib/data/reservation-rules";
+import {
+  readJsonFromStorage,
+  updateJsonInStorage,
+  type UpdateOutcome,
+} from "@/lib/storage";
 
 const FILE_PATH = "reservations.json";
 
@@ -130,13 +139,19 @@ export function buildScheduleForRecord(
 }
 
 export async function readReservationRecords(): Promise<ReservationRecord[]> {
-  return readJsonFromStorage<ReservationRecord[]>(FILE_PATH, []);
+  return readJsonFromStorage<ReservationRecord[]>(FILE_PATH, [], { shape: "array" });
 }
 
-export async function writeReservationRecords(
-  records: ReservationRecord[]
-): Promise<void> {
-  await writeJsonToStorage(FILE_PATH, records);
+/**
+ * 予約データを書き換える。
+ * 排他ロックの中で最新の内容を読み、mutate の結果を保存する（詳細は `@/lib/storage`）。
+ */
+function updateReservationRecords<R>(
+  mutate: (records: ReservationRecord[]) => UpdateOutcome<ReservationRecord[], R>
+): Promise<R> {
+  return updateJsonInStorage<ReservationRecord[], R>(FILE_PATH, [], mutate, {
+    shape: "array",
+  });
 }
 
 /** 全予約を取得（scheduleとuser情報を含む完全なReservation型） */
@@ -213,28 +228,50 @@ export async function getReservationsByUserId(
   );
 }
 
-/** 予約ステータス更新（ストレージ書込のみ。認可チェックは呼び出し側） */
+// ---------------------------------------------------------------------------
+// ステータス変更
+// ---------------------------------------------------------------------------
+
+export type StatusChangeResult =
+  | { success: true; record: ReservationRecord }
+  | { success: false; error: string };
+
+/**
+ * 予約ステータス更新（ストレージ書込のみ。認可チェックは呼び出し側）
+ * 現在のステータスから移れるかどうかの確認も、保存と同じロックの中で行う。
+ */
 export async function updateReservationStatusRecord(
   reservationId: string,
   newStatus: ReservationStatus,
-  cancelReason?: string
-): Promise<{ success: boolean; error?: string }> {
-  const records = await readReservationRecords();
-  const idx = records.findIndex((r) => r.id === reservationId);
-  if (idx === -1) return { success: false, error: "予約が見つかりません" };
-
-  records[idx].status = newStatus;
-  records[idx].updatedAt = new Date().toISOString();
-  if (newStatus === "CANCELLED") {
-    records[idx].cancelledAt = new Date().toISOString();
-    records[idx].cancelReason = cancelReason || null;
-  }
-
-  await writeReservationRecords(records);
-  return { success: true };
+  options: { cancelReason?: string; from?: ReservationStatus[] } = {}
+): Promise<StatusChangeResult> {
+  return updateReservationRecords<StatusChangeResult>((records) => {
+    const change = applyReservationStatusChange(records, reservationId, newStatus, {
+      ...options,
+      nowIso: new Date().toISOString(),
+    });
+    if (!change.ok) return { result: { success: false, error: change.error } };
+    return {
+      data: change.records,
+      result: { success: true, record: change.record },
+    };
+  });
 }
 
-/** 予約を追加（ストレージ書込のみ。認可チェックは呼び出し側） */
+// ---------------------------------------------------------------------------
+// 予約の追加
+// ---------------------------------------------------------------------------
+
+export type InsertReservationResult = {
+  success: boolean;
+  reservationId?: string;
+  error?: string;
+};
+
+/**
+ * 予約を追加（ストレージ書込のみ。認可チェックは呼び出し側）
+ * 空き状況の確認（重複・満員・貸切）も保存と同じロックの中で行う。
+ */
 export async function insertReservationRecord(input: {
   userId: string;
   userName: string | null;
@@ -254,41 +291,53 @@ export async function insertReservationRecord(input: {
   requestedCourse?: string | null;
   emergencyPhone?: string | null;
   totalPrice: number;
-  /** 予約対象のスケジュール本体。渡すと予約時点の情報をスナップショット保存する（必ず渡すこと） */
-  schedule?: Schedule | null;
-}): Promise<{ success: boolean; reservationId?: string; error?: string }> {
-  const records = await readReservationRecords();
-  const id = `rsv-${Date.now()}`;
-  const now = new Date().toISOString();
+  /** 予約対象のスケジュール本体。予約時点の情報をスナップショット保存し、定員の判定にも使う */
+  schedule: Schedule;
+}): Promise<InsertReservationResult> {
+  return updateReservationRecords<InsertReservationResult>((records) => {
+    const refusal = checkReservationCapacity(records, {
+      userId: input.userId,
+      scheduleId: input.scheduleId,
+      roundBookingType: input.roundBookingType ?? null,
+      maxAttendees: input.schedule.maxAttendees,
+    });
+    if (refusal) return { result: { success: false, error: refusal } };
 
-  records.push({
-    id,
-    userId: input.userId,
-    userName: input.userName,
-    userEmail: input.userEmail,
-    scheduleId: input.scheduleId,
-    status: "PENDING",
-    concern: input.concern || null,
-    agreedCancelPolicy: input.agreedCancelPolicy,
-    agreedPhotoPost: input.agreedPhotoPost,
-    optionSwingVideo: input.optionSwingVideo ?? false,
-    roundBookingType: input.roundBookingType ?? null,
-    roundParticipantCount: input.roundParticipantCount ?? null,
-    indoorLocationType: input.indoorLocationType ?? null,
-    requestedLocation: input.requestedLocation ?? null,
-    requestedDuration: input.requestedDuration ?? null,
-    usesTicketPack: input.usesTicketPack ?? null,
-    existingPlanId: input.existingPlanId ?? null,
-    requestedCourse: input.requestedCourse ?? null,
-    emergencyPhone: input.emergencyPhone ?? null,
-    totalPrice: input.totalPrice,
-    scheduleSnapshot: input.schedule ? makeScheduleSnapshot(input.schedule) : null,
-    cancelledAt: null,
-    cancelReason: null,
-    createdAt: now,
-    updatedAt: now,
+    const now = new Date();
+    const id = newRecordId("rsv", records, now.getTime());
+    const nowIso = now.toISOString();
+
+    const record: ReservationRecord = {
+      id,
+      userId: input.userId,
+      userName: input.userName,
+      userEmail: input.userEmail,
+      scheduleId: input.scheduleId,
+      status: "PENDING",
+      concern: input.concern || null,
+      agreedCancelPolicy: input.agreedCancelPolicy,
+      agreedPhotoPost: input.agreedPhotoPost,
+      optionSwingVideo: input.optionSwingVideo ?? false,
+      roundBookingType: input.roundBookingType ?? null,
+      roundParticipantCount: input.roundParticipantCount ?? null,
+      indoorLocationType: input.indoorLocationType ?? null,
+      requestedLocation: input.requestedLocation ?? null,
+      requestedDuration: input.requestedDuration ?? null,
+      usesTicketPack: input.usesTicketPack ?? null,
+      existingPlanId: input.existingPlanId ?? null,
+      requestedCourse: input.requestedCourse ?? null,
+      emergencyPhone: input.emergencyPhone ?? null,
+      totalPrice: input.totalPrice,
+      scheduleSnapshot: makeScheduleSnapshot(input.schedule),
+      cancelledAt: null,
+      cancelReason: null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    return {
+      data: [...records, record],
+      result: { success: true, reservationId: id },
+    };
   });
-
-  await writeReservationRecords(records);
-  return { success: true, reservationId: id };
 }

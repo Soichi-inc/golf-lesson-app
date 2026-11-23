@@ -51,11 +51,6 @@ export default async function AdminDashboardPage() {
   const availableSlots = monthSchedules.filter((s) => s.isAvailable).length;
   const totalSlots = monthSchedules.length;
 
-  // 今日の予定
-  const todaySchedules = allSchedules
-    .filter((s) => isSameDay(s.startAt, today))
-    .sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
-
   // 直近の予定（今日以降、最大5件）
   const upcomingSchedules = allSchedules
     .filter((s) => !isBefore(startOfDay(s.startAt), today))

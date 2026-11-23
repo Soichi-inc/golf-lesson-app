@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { RoundScore } from "@/types";
 import { addScore as addScoreAction, deleteScore as deleteScoreAction } from "@/app/actions/scores";
+import { callAction } from "@/lib/client/call-action";
 
 type ScoreFormRaw = {
   playedAt: string;
@@ -78,15 +79,17 @@ export function MyScoreSection({ scores: initialScores, userId }: Props) {
 
     const toInt = (s: string) => (s.trim() === "" ? null : parseInt(s, 10));
 
-    const result = await addScoreAction({
-      playedAt: raw.playedAt,
-      courseName: raw.courseName,
-      score,
-      outScore: toInt(raw.outScore),
-      inScore: toInt(raw.inScore),
-      putts: toInt(raw.putts),
-      memo: raw.memo.trim() || null,
-    });
+    const result = await callAction(() =>
+      addScoreAction({
+        playedAt: raw.playedAt,
+        courseName: raw.courseName,
+        score,
+        outScore: toInt(raw.outScore),
+        inScore: toInt(raw.inScore),
+        putts: toInt(raw.putts),
+        memo: raw.memo.trim() || null,
+      })
+    );
 
     if (result.success && result.score) {
       setScores((prev) =>
@@ -101,7 +104,7 @@ export function MyScoreSection({ scores: initialScores, userId }: Props) {
 
   async function handleDelete(id: string) {
     setErrorMessage(null);
-    const result = await deleteScoreAction(id);
+    const result = await callAction(() => deleteScoreAction(id));
     if (result.success) {
       setScores((prev) => prev.filter((s) => s.id !== id));
     } else {

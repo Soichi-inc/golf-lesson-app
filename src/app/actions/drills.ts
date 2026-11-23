@@ -4,10 +4,11 @@ import type { Drill, DrillStatus } from "@/types";
 import { requireAdmin, requireUser, handleActionError } from "@/lib/auth/guard";
 import {
   readDrillRecords,
-  writeDrillRecords,
+  updateDrillRecords,
   toDrill,
   type DrillRecord,
 } from "@/lib/data/drills";
+import { newRecordId } from "@/lib/data/ids";
 
 /** ドリルを追加（ADMIN専用） */
 export async function addDrill(input: {
@@ -19,25 +20,22 @@ export async function addDrill(input: {
 }): Promise<{ success: boolean; drill?: Drill; error?: string }> {
   try {
     await requireAdmin();
-    const records = await readDrillRecords();
-    const id = `drill-${Date.now()}`;
-    const now = new Date().toISOString();
-
-    const record: DrillRecord = {
-      id,
-      userId: input.userId,
-      lessonRecordId: null,
-      title: input.title,
-      description: input.description || null,
-      videoUrl: input.videoUrl || null,
-      status: "ASSIGNED",
-      dueDate: input.dueDate || null,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    records.push(record);
-    await writeDrillRecords(records);
+    const record = await updateDrillRecords((records) => {
+      const now = new Date();
+      const created: DrillRecord = {
+        id: newRecordId("drill", records, now.getTime()),
+        userId: input.userId,
+        lessonRecordId: null,
+        title: input.title,
+        description: input.description || null,
+        videoUrl: input.videoUrl || null,
+        status: "ASSIGNED",
+        dueDate: input.dueDate || null,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+      return { data: [...records, created], result: created };
+    });
 
     return { success: true, drill: toDrill(record) };
   } catch (e) {
@@ -69,19 +67,23 @@ export async function updateDrillStatus(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requireUser();
-    const records = await readDrillRecords();
-    const idx = records.findIndex((r) => r.id === drillId);
-    if (idx === -1) return { success: false, error: "ドリルが見つかりません" };
+    return await updateDrillRecords<{ success: boolean; error?: string }>((records) => {
+      const target = records.find((r) => r.id === drillId);
+      if (!target) return { result: { success: false, error: "ドリルが見つかりません" } };
 
-    if (user.role !== "ADMIN" && records[idx].userId !== user.id) {
-      return { success: false, error: "このドリルは更新できません" };
-    }
-
-    records[idx].status = newStatus;
-    records[idx].updatedAt = new Date().toISOString();
-    await writeDrillRecords(records);
-
-    return { success: true };
+      if (user.role !== "ADMIN" && target.userId !== user.id) {
+        return { result: { success: false, error: "このドリルは更新できません" } };
+      }
+      const updated: DrillRecord = {
+        ...target,
+        status: newStatus,
+        updatedAt: new Date().toISOString(),
+      };
+      return {
+        data: records.map((r) => (r.id === drillId ? updated : r)),
+        result: { success: true },
+      };
+    });
   } catch (e) {
     return handleActionError(e, "ステータス更新に失敗しました");
   }
@@ -93,9 +95,10 @@ export async function deleteDrill(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await requireAdmin();
-    const records = await readDrillRecords();
-    const filtered = records.filter((r) => r.id !== drillId);
-    await writeDrillRecords(filtered);
+    await updateDrillRecords((records) => ({
+      data: records.filter((r) => r.id !== drillId),
+      result: null,
+    }));
     return { success: true };
   } catch (e) {
     return handleActionError(e, "ドリルの削除に失敗しました");
