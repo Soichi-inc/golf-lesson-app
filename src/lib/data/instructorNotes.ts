@@ -32,6 +32,38 @@ export function toInstructorNote(r: InstructorNoteRecord): InstructorNote {
   };
 }
 
+/**
+ * 指導メモ1件の本文・公開設定を書き換えた新しいレコード配列を返す。
+ * 対象が見つからなければ null。createdAt は変えないため一覧の並び順は維持される。
+ */
+export function applyInstructorNoteUpdate(
+  records: InstructorNoteRecord[],
+  noteId: string,
+  input: { content: string; isPrivate: boolean },
+  nowIso: string
+): {
+  records: InstructorNoteRecord[];
+  updated: InstructorNoteRecord;
+  /** 非公開→公開に切り替わったか（この時点で初めて顧客に見えるようになる） */
+  becamePublic: boolean;
+} | null {
+  const target = records.find((r) => r.id === noteId);
+  if (!target) return null;
+
+  const updated: InstructorNoteRecord = {
+    ...target,
+    content: input.content,
+    isPrivate: input.isPrivate,
+    updatedAt: nowIso,
+  };
+
+  return {
+    records: records.map((r) => (r.id === noteId ? updated : r)),
+    updated,
+    becamePublic: target.isPrivate && !input.isPrivate,
+  };
+}
+
 export async function getInstructorNotesByUserId(
   userId: string
 ): Promise<InstructorNote[]> {

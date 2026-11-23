@@ -2,12 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
-import { addInstructorNote, deleteInstructorNote } from "@/app/actions/instructorNotes";
+import {
+  addInstructorNote,
+  deleteInstructorNote,
+  updateInstructorNote,
+} from "@/app/actions/instructorNotes";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Plus, Lock, Unlock, Trash2 } from "lucide-react";
+import { Plus, Lock, Unlock, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +72,26 @@ export function InstructorNoteEditor({ initialNotes, userId }: Props) {
         setNotes((prev) => prev.filter((n) => n.id !== id));
       }
     });
+  }
+
+  /** 保存できたら true。失敗時は編集中の内容を残せるよう false を返す */
+  async function handleUpdate(id: string, values: NoteFormValues): Promise<boolean> {
+    try {
+      const result = await updateInstructorNote(id, values);
+      if (result.success && result.note) {
+        const updated = result.note;
+        setNotes((prev) => prev.map((n) => (n.id === id ? updated : n)));
+        return true;
+      }
+      alert(result.error || "指導メモの更新に失敗しました");
+      return false;
+    } catch {
+      // 通信断のほか、ログイン切れ（保存リクエストがログイン画面へ転送される）でもここに来る
+      alert(
+        "保存できませんでした。通信状況を確認して、もう一度お試しください。何度も失敗する場合はログインが切れている可能性があります。本文をコピーしてから、ページを再読み込みしてログインし直してください。"
+      );
+      return false;
+    }
   }
 
   return (
@@ -165,7 +189,12 @@ export function InstructorNoteEditor({ initialNotes, userId }: Props) {
       ) : (
         <div className="space-y-3">
           {notes.map((note) => (
-            <NoteCard key={note.id} note={note} onDelete={handleDelete} />
+            <NoteCard
+              key={note.id}
+              note={note}
+              onDelete={handleDelete}
+              onUpdate={handleUpdate}
+            />
           ))}
         </div>
       )}
@@ -176,10 +205,114 @@ export function InstructorNoteEditor({ initialNotes, userId }: Props) {
 function NoteCard({
   note,
   onDelete,
+  onUpdate,
 }: {
   note: InstructorNote;
   onDelete: (id: string) => void;
+  onUpdate: (id: string, values: NoteFormValues) => Promise<boolean>;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(note.content);
+  const [draftPrivate, setDraftPrivate] = useState(note.isPrivate);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const isDirty = draft !== note.content || draftPrivate !== note.isPrivate;
+
+  function startEdit() {
+    setDraft(note.content);
+    setDraftPrivate(note.isPrivate);
+    setIsEditing(true);
+  }
+
+  function cancelEdit() {
+    if (isDirty && !confirm("編集中の内容を破棄しますか？")) return;
+    setIsEditing(false);
+  }
+
+  async function save() {
+    if (!isDirty) {
+      setIsEditing(false);
+      return;
+    }
+    setIsSaving(true);
+    const saved = await onUpdate(note.id, { content: draft, isPrivate: draftPrivate });
+    setIsSaving(false);
+    if (saved) setIsEditing(false);
+  }
+
+  if (isEditing) {
+    const checkboxId = `isPrivate-${note.id}`;
+    return (
+      <Card className="border-stone-300 bg-stone-50">
+        <CardContent className="p-4 space-y-3">
+          <p className="text-[11px] text-stone-400">
+            {format(note.createdAt, "yyyy/MM/dd HH:mm", { locale: ja })} のメモを編集中
+          </p>
+
+          <Textarea
+            aria-label="指導メモの内容"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={Math.min(Math.max(draft.split("\n").length + 2, 6), 40)}
+            className="bg-white resize-none"
+            autoFocus
+          />
+          {!draft.trim() && (
+            <p className="text-xs text-red-500">内容を入力してください</p>
+          )}
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id={checkboxId}
+              checked={draftPrivate}
+              onCheckedChange={(checked) => setDraftPrivate(checked === true)}
+            />
+            <Label htmlFor={checkboxId} className="text-xs text-stone-600 cursor-pointer">
+              顧客に非公開（プロのみ閲覧）
+            </Label>
+          </div>
+
+          {!draftPrivate && note.isPrivate && (
+            <p className="text-[11px] text-blue-600">
+              保存すると、お客様にメールで通知されます。
+            </p>
+          )}
+          {!draftPrivate && !note.isPrivate && (
+            <p className="text-[11px] text-stone-500">
+              お客様のマイページの内容も書き換わります（メールの再通知はありません）。
+            </p>
+          )}
+          {draftPrivate && !note.isPrivate && (
+            <p className="text-[11px] text-amber-600">
+              保存すると、お客様のマイページには表示されなくなります。
+            </p>
+          )}
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="bg-stone-800 hover:bg-stone-700"
+              disabled={isSaving || !draft.trim()}
+              onClick={save}
+            >
+              {isSaving ? "保存中..." : "保存"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isSaving}
+              onClick={cancelEdit}
+            >
+              キャンセル
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="bg-white">
       <CardContent className="p-4">
@@ -218,15 +351,27 @@ function NoteCard({
             </p>
           </div>
 
-          {/* 削除ボタン */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-stone-300 hover:text-red-400 hover:bg-red-50 shrink-0"
-            onClick={() => onDelete(note.id)}
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
+          {/* 編集・削除ボタン */}
+          <div className="flex items-center gap-0.5 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 text-stone-400 hover:text-stone-700 hover:bg-stone-100"
+              onClick={startEdit}
+              aria-label="メモを編集"
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 text-stone-300 hover:text-red-400 hover:bg-red-50"
+              onClick={() => onDelete(note.id)}
+              aria-label="メモを削除"
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

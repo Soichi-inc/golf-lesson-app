@@ -9,6 +9,7 @@ import {
   readInstructorNoteRecords,
   writeInstructorNoteRecords,
   toInstructorNote,
+  applyInstructorNoteUpdate,
   type InstructorNoteRecord,
 } from "@/lib/data/instructorNotes";
 
@@ -66,12 +67,61 @@ export async function addInstructorNote(input: {
 
     // 公開メモの場合、顧客にメール通知
     if (!input.isPrivate) {
-      sendNotificationEmail(input.userId, input.content).catch(console.error);
+      await sendNotificationEmail(input.userId, input.content).catch(console.error);
     }
 
     return { success: true, note: toInstructorNote(record) };
   } catch (e) {
     return handleActionError(e, "指導メモの保存に失敗しました");
+  }
+}
+
+/**
+ * 指導メモを更新（ADMIN専用）
+ *
+ * 顧客への通知メールは「非公開→公開」に切り替えたときだけ送る
+ * （その時点で初めて顧客に見えるようになるため、新規の公開メモと同じ扱い）。
+ * 公開済みメモの書き直しでは再通知しない。
+ */
+export async function updateInstructorNote(
+  noteId: string,
+  input: { content: string; isPrivate: boolean }
+): Promise<{ success: boolean; note?: InstructorNote; error?: string }> {
+  try {
+    await requireAdmin();
+    if (!input.content.trim()) {
+      return { success: false, error: "内容を入力してください" };
+    }
+
+    const result = applyInstructorNoteUpdate(
+      await readInstructorNoteRecords(),
+      noteId,
+      { content: input.content, isPrivate: input.isPrivate },
+      new Date().toISOString()
+    );
+    if (!result) {
+      // 読み込みの一時的な失敗でもここに来る。再読み込みすると編集中の文章が消えるため、先に再試行を案内する
+      return {
+        success: false,
+        error:
+          "メモを保存できませんでした。少し待ってからもう一度「保存」を押してください。繰り返し失敗する場合は、本文をコピーしてから画面を再読み込みしてください。",
+      };
+    }
+
+    await writeInstructorNoteRecords(result.records);
+
+    if (result.becamePublic) {
+      await sendNotificationEmail(result.updated.userId, result.updated.content).catch(
+        console.error
+      );
+    }
+
+    return { success: true, note: toInstructorNote(result.updated) };
+  } catch (e) {
+    return handleActionError(
+      e,
+      "指導メモの更新に失敗しました。少し待ってからもう一度お試しください。"
+    );
   }
 }
 
